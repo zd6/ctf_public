@@ -455,7 +455,7 @@ class CapEnv(gym.Env):
         
         return
 
-    def step(self, entities_action=None, cur_suggestions=None):
+    def step(self, entities_action=None, cur_suggestions=None, override_red_action=None):
         """
         Takes one step in the cap the flag game
 
@@ -464,6 +464,7 @@ class CapEnv(gym.Env):
         :param
             entities_action: contains actions for entity 1-n
             cur_suggestions: suggestions from rl to human
+            override_red_action: actions for red entity 1-n
         :return:
             state    : object
             CapEnv object
@@ -477,19 +478,34 @@ class CapEnv(gym.Env):
         move_list = []
 
         # Get actions from uploaded policies
-        try:
-            move_list_red = self.policy_red.gen_action(self.team_red,self.get_obs_red,free_map=self.team_home)
-        except Exception as e:
-            print(e)
-            print("No valid policy for red team")
-            exit()
+        indv_action_space = len(self.ACTION)
+        if override_red_action is None:
+            try:
+                move_list_red = self.policy_red.gen_action(self.team_red,self.get_obs_red,free_map=self.team_home)
+            except Exception as e:
+                print(e)
+                raise ValueError("No valid policy for red team")
+                exit()
+        elif type(override_red_action) is int:
+            if override_red_action >= len(self.ACTION) ** (self.NUM_RED + self.NUM_UAV):
+                sys.exit("ERROR: You entered too many moves. \
+                         There are " + str(self.NUM_RED + self.NUM_UAV) + " entities.")
+            move_list_red = []
+            while len(move_list) < (self.NUM_RED + self.NUM_UAV):
+                move_list_red.append(override_red_action % indv_action_space)
+                override_red_action = int(override_red_action / indv_action_space)
+        else:
+            if len(override_red_action) > self.NUM_RED + self.NUM_UAV:
+                sys.exit("ERROR: You entered too many moves. \
+                         There are " + str(self.NUM_RED + self.NUM_UAV) + " entities.")
+            move_list_red = override_red_action
 
         if entities_action is None:
             try:
                 move_list_blue = self.policy_blue.gen_action(self.team_blue,self.get_obs_blue,free_map=self.team_home)
             except Exception as e:
                 print(e)
-                print("No valid policy for blue team and no actions provided")
+                raise ValueError("No valid policy for blue team and no actions provided")
                 exit()
         elif type(entities_action) is int:
             if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
@@ -497,8 +513,8 @@ class CapEnv(gym.Env):
                          There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
             move_list_blue = []
             while len(move_list) < (self.NUM_BLUE + self.NUM_UAV):
-                move_list_blue.append(entities_action % 5)
-                entities_action = int(entities_action / 5)
+                move_list_blue.append(entities_action % indv_action_space)
+                entities_action = int(entities_action / indv_action_space)
         else:
             if len(entities_action) > self.NUM_BLUE + self.NUM_UAV:
                 sys.exit("ERROR: You entered too many moves. \
