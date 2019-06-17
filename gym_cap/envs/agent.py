@@ -163,7 +163,7 @@ class Agent:
         if not self.isAlive:        # if target agent is dead, return all -1
             return obs
 
-        def obstacle(self, observation, loc):
+        def obstacle(observation, loc):
             posx, posy, negx, negy = True, True, True, True
             obs = observation
             x, y = loc[0], loc[1]
