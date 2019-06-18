@@ -1,5 +1,11 @@
+import __future__
+
 import io
-import configparser
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+    
 import random
 import sys
 
@@ -129,7 +135,7 @@ class CapEnv(gym.Env):
             try:
                 custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
             except OSError as e:
-                raise e(f'File name {custom_board} failed to open')
+                raise e('File name {} failed to open'.format(custom_board))
                 exit() 
 
             self._env, self.team_home, map_obj = CreateMap.set_custom_map(custom_map)

@@ -124,7 +124,7 @@ class CreateMap:
         return new_map, static_map, [ugv_1, uav_1, ugv_2, uav_2, gray]
 
     @staticmethod
-    def populate_map(new_map:np.ndarray, code_where:list, code_what:int, number:int=1):
+    def populate_map(new_map, code_where, code_what, number=1):
         """
         Function
             Adds "code_what" to a random location of "code_where" at "new_map"
