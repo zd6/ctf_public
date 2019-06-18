@@ -35,6 +35,9 @@ TEAM_MEMORY = None       # ['None', 'fog', 'Full']
 RENDER_INDIV_MEMORY = False
 RENDER_TEAM_MEMORY = False
 
+# Control Setting
+CONTROL_ALL = False  # If true, step(action) controls both red and blue
+
 # MapConst
 """ Defining the constants for map and environment """
 # WORLD_H = 100

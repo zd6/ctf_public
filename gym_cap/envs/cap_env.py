@@ -53,6 +53,7 @@ class CapEnv(gym.Env):
 
         config_param = { # Configurable parameters
                 'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY'],
+                'control': ['CONTROL_ALL'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
                 'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS',
@@ -60,6 +61,7 @@ class CapEnv(gym.Env):
             }
         config_datatype = {
                 'elements': [int, int, int ,int],
+                'control': [bool],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, bool, int, bool, bool, bool]
@@ -475,51 +477,44 @@ class CapEnv(gym.Env):
             info    :
         """
 
-        move_list = []
+        indiv_action_space = len(self.ACTION)
 
-        # Get actions from uploaded policies
-        indv_action_space = len(self.ACTION)
-        if override_red_action is None:
+        if self.CONTROL_ALL:
+            assert entities_action is not None, 'Under CONTROL_ALL setting, action must be specified'
+            assert (type(entities_action) is list) or (type(entities_action) is np.ndarray), 'CONTROLL_ALL setting requires list (or numpy array) type of action'
+            assert len(entities_action) == self.NUM_BLUE+self.NUM_RED+self.NUM_UAV+self.NUM_UAV, 'You entered wrong number of moves.'
+
+            move_list_blue = entities_action[:self.NUM_UAV+self.NUM_BLUE]
+            move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED:]
+        else:
+            # Get actions from uploaded policies
             try:
                 move_list_red = self.policy_red.gen_action(self.team_red,self.get_obs_red,free_map=self.team_home)
             except Exception as e:
                 print(e)
-                raise ValueError("No valid policy for red team")
+                print("No valid policy for red team")
                 exit()
-        elif type(override_red_action) is int:
-            if override_red_action >= len(self.ACTION) ** (self.NUM_RED + self.NUM_UAV):
-                sys.exit("ERROR: You entered too many moves. \
-                         There are " + str(self.NUM_RED + self.NUM_UAV) + " entities.")
-            move_list_red = []
-            while len(move_list) < (self.NUM_RED + self.NUM_UAV):
-                move_list_red.append(override_red_action % indv_action_space)
-                override_red_action = int(override_red_action / indv_action_space)
-        else:
-            if len(override_red_action) > self.NUM_RED + self.NUM_UAV:
-                sys.exit("ERROR: You entered too many moves. \
-                         There are " + str(self.NUM_RED + self.NUM_UAV) + " entities.")
-            move_list_red = override_red_action
 
-        if entities_action is None:
-            try:
-                move_list_blue = self.policy_blue.gen_action(self.team_blue,self.get_obs_blue,free_map=self.team_home)
-            except Exception as e:
-                print(e)
-                raise ValueError("No valid policy for blue team and no actions provided")
-                exit()
-        elif type(entities_action) is int:
-            if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
-                sys.exit("ERROR: You entered too many moves. \
-                         There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
-            move_list_blue = []
-            while len(move_list) < (self.NUM_BLUE + self.NUM_UAV):
-                move_list_blue.append(entities_action % indv_action_space)
-                entities_action = int(entities_action / indv_action_space)
-        else:
-            if len(entities_action) > self.NUM_BLUE + self.NUM_UAV:
-                sys.exit("ERROR: You entered too many moves. \
-                         There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
-            move_list_blue = entities_action
+            if entities_action is None:
+                try:
+                    move_list_blue = self.policy_blue.gen_action(self.team_blue,self.get_obs_blue,free_map=self.team_home)
+                except Exception as e:
+                    print(e)
+                    print("No valid policy for blue team and no actions provided")
+                    exit()
+            elif type(entities_action) is int:
+                if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
+                    sys.exit("ERROR: You entered too many moves. \
+                             There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                move_list_blue = []
+                while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV):
+                    move_list_blue.append(entities_action % indiv_action_space)
+                    entities_action = int(entities_action / indiv_action_space)
+            else:
+                if len(entities_action) > self.NUM_BLUE + self.NUM_UAV:
+                    sys.exit("ERROR: You entered too many moves. \
+                             There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                move_list_blue = entities_action
 
 
         # Move team1
