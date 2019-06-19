@@ -160,13 +160,13 @@ class CapEnv(gym.Env):
         # INITIALIZE POLICY
         if policy_blue is not None:
             try:
-                self.policy_blue = policy_blue()
+                self.policy_blue = policy_blue
             except Exception as e:
                 print(e)
                 raise Exception("Blue policy does not have Policy_gen object")
         if policy_red is not None:
             try:
-                self.policy_red = policy_red()
+                self.policy_red = policy_red
             except Exception as e:
                 print(e)
                 raise Exception("Red policy does not have Policy_gen object")
