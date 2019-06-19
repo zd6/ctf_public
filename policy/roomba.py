@@ -29,6 +29,9 @@ class Roomba(Policy):
         previous_move : variable to save previous action
     """
 
+    def __init__(self):
+        super().__init__()
+
     def initiate(self, free_map, agent_list):
         """Constuctor for policy class.
 
