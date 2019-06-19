@@ -11,8 +11,9 @@ DOs/Denis Osipychev
 import numpy as np
 import gym_cap.envs.const as const
 
+from policy.policy import Policy
 
-class PolicyGen:
+class Defense(Policy):
     """Policy generator class for CtF env.
 
     This class can be used as a template for policy generator.
@@ -23,17 +24,7 @@ class PolicyGen:
         patrol: Private method to control a single unit.
     """
 
-    def __init__(self, free_map, agent_list):
-        """Constuctor for policy class.
-
-        Patrolling policy provides the actions for the team of units that
-        command units to approach the boarder between friendly and enemy
-        zones and patrol along it.
-
-        Args:
-            free_map (np.array): 2d map of static environment.
-            agent_list (list): list of all friendly units.
-        """
+    def initiate(self, free_map, agent_list):
         self.free_map = free_map
         self.free_map_old = free_map
         self.team = agent_list[0].team
@@ -42,7 +33,7 @@ class PolicyGen:
         self.random = np.random
         self.exploration = 0.5
 
-        self.flag_code = const.TEAM1_FLAG6
+        self.flag_code = const.TEAM1_FLAG
 
     def gen_action(self, agent_list, observation, free_map=None):
         """Action generation method.
