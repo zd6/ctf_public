@@ -41,9 +41,14 @@ class CapEnv(gym.Env):
         """
         self.seed()
         self.viewer = None
+
         self.blue_memory = np.empty((map_size, map_size))
         self.red_memory = np.empty((map_size, map_size))
+
         self._parse_config()
+
+        self.policy_blue = None
+        self.policy_red = None
 
         self.reset(map_size, mode=mode,
                 policy_blue=kwargs.get('policy_blue', None),
@@ -155,13 +160,13 @@ class CapEnv(gym.Env):
         # INITIALIZE POLICY
         if policy_blue is not None:
             try:
-                self.policy_blue = policy_blue.PolicyGen(self.team_home, self.team_blue)
+                self.policy_blue = policy_blue()
             except Exception as e:
                 print(e)
                 raise Exception("Blue policy does not have Policy_gen object")
         if policy_red is not None:
             try:
-                self.policy_red = policy_red.PolicyGen(self.team_home, self.team_red)
+                self.policy_red = policy_red()
             except Exception as e:
                 print(e)
                 raise Exception("Red policy does not have Policy_gen object")
@@ -175,6 +180,12 @@ class CapEnv(gym.Env):
             for agent in self.team_blue + self.team_red:
                 agent.memory[:] = const.UNKNOWN
                 agent.memory_mode = "fog"
+
+        # INITIATE POLICY
+        if self.policy_blue is not None:
+            self.policy_blue.initiate(self.team_home, self.team_blue)
+        if self.policy_red is not None:
+            self.policy_red.initiate(self.team_home, self.team_red)
 
         self.create_observation_space()
 
@@ -254,35 +265,39 @@ class CapEnv(gym.Env):
             Team to create obs space for
         """
 
-        #self.observation_space_blue = np.full_like(self._env, -1)
-        self.observation_space_blue = np.empty(self._env.shape)
-        self.observation_space_blue[:] = -1
-        for agent in self.team_blue:
-            if not agent.isAlive:
-                continue
-            loc = agent.get_loc()
-            for i in range(-agent.range, agent.range + 1):
-                for j in range(-agent.range, agent.range + 1):
-                    locx, locy = i + loc[0], j + loc[1]
-                    if (i * i + j * j <= agent.range ** 2) and \
-                            not (locx < 0 or locx > self.map_size[0] - 1) and \
-                            not (locy < 0 or locy > self.map_size[1] - 1):
-                        self.observation_space_blue[locx][locy] = self._env[locx][locy]
+        if self.BLUE_PARTIAL:
+            self.observation_space_blue = np.empty(self._env.shape)
+            self.observation_space_blue[:] = -1
+            for agent in self.team_blue:
+                if not agent.isAlive:
+                    continue
+                loc = agent.get_loc()
+                for i in range(-agent.range, agent.range + 1):
+                    for j in range(-agent.range, agent.range + 1):
+                        locx, locy = i + loc[0], j + loc[1]
+                        if (i * i + j * j <= agent.range ** 2) and \
+                                not (locx < 0 or locx > self.map_size[0] - 1) and \
+                                not (locy < 0 or locy > self.map_size[1] - 1):
+                            self.observation_space_blue[locx][locy] = self._env[locx][locy]
+        else:
+            self.observation_space_blue = self._env
 
-        #self.observation_space_red = np.full_like(self._env, -1)
-        self.observation_space_red= np.empty(self._env.shape)
-        self.observation_space_red[:] = -1
-        for agent in self.team_red:
-            if not agent.isAlive:
-                continue
-            loc = agent.get_loc()
-            for i in range(-agent.range, agent.range + 1):
-                for j in range(-agent.range, agent.range + 1):
-                    locx, locy = i + loc[0], j + loc[1]
-                    if (i * i + j * j <= agent.range ** 2) and \
-                            not (locx < 0 or locx > self.map_size[0] - 1) and \
-                            not (locy < 0 or locy > self.map_size[1] - 1):
-                        self.observation_space_red[locx][locy] = self._env[locx][locy]
+        if self.RED_PARTIAL:
+            self.observation_space_red= np.empty(self._env.shape)
+            self.observation_space_red[:] = -1
+            for agent in self.team_red:
+                if not agent.isAlive:
+                    continue
+                loc = agent.get_loc()
+                for i in range(-agent.range, agent.range + 1):
+                    for j in range(-agent.range, agent.range + 1):
+                        locx, locy = i + loc[0], j + loc[1]
+                        if (i * i + j * j <= agent.range ** 2) and \
+                                not (locx < 0 or locx > self.map_size[0] - 1) and \
+                                not (locy < 0 or locy > self.map_size[1] - 1):
+                            self.observation_space_red[locx][locy] = self._env[locx][locy]
+        else:
+            self.observation_space_red = self._env
 
 
         # TODO need to be added observation for grey team
@@ -314,17 +329,12 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue(self):
-        if self.BLUE_PARTIAL:
-            return np.copy(self.observation_space_blue)
-        else:
-            return self.get_full_state
+        return np.copy(self.observation_space_blue)
 
     @property
     def get_obs_red(self):
-        if self.RED_PARTIAL:
-            red_view = np.copy(self.observation_space_red)
-        else:
-            red_view = self.get_full_state
+        target = self.observation_space_red
+        red_view = np.copy(target)
 
         # Change red's perspective same as blue
         swap = [
@@ -335,9 +345,8 @@ class CapEnv(gym.Env):
         ]
 
         for a, b in swap:
-            index_a = np.where(red_view==a)
-            red_view[red_view==b] = a
-            red_view[index_a] = b
+            red_view[target==a] = b
+            red_view[target==b] = a
 
         return red_view
 
