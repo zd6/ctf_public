@@ -5,10 +5,7 @@ import numpy as np
 
 
 # the modules that you can use to generate the policy.
-import policy.roomba
-import policy.random
-import policy.patrol
-import policy.defense
+import policy
 
 start_time = time.time()
 env = gym.make("cap-v0") # initialize the environment
@@ -18,8 +15,8 @@ rscore = []
 
 # reset the environment and select the policies for each of the team
 observation = env.reset(map_size=20,
-                        policy_blue=policy.roomba,
-                        policy_red=policy.random)
+                        policy_blue=policy.defense.Defense(),
+                        policy_red=policy.random.Random())
 
 try:
     while True:
