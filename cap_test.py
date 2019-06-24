@@ -15,8 +15,8 @@ rscore = []
 
 # reset the environment and select the policies for each of the team
 observation = env.reset(map_size=20,
-                        policy_blue=policy.defense.Defense(),
-                        policy_red=policy.random.Random())
+                        policy_blue=policy.Defense(),
+                        policy_red=policy.Random())
 
 try:
     while True:
