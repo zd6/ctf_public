@@ -24,15 +24,15 @@ class Agent:
         """
         self.isAlive = True
         self.x, self.y = loc
-        self.length, self.breath = map_only.shape
         self.step = UGV_STEP
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.air = False
-        self.memory = np.empty((self.length, self.breath))
+        self.memory = np.empty_like(map_only)
         self.memory_mode = "None"
         #self.ai = EnemyAI(map_only)
         self.team = team_number
+        self.marker = None
         self.move_selected = False
 
     def move(self, action, env, team_home):
