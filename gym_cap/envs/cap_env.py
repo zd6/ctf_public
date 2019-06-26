@@ -682,6 +682,8 @@ class CapEnv(gym.Env):
                             [5+SCREEN_W//2, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
             self._env_render(self._env,
                             [5, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
+            self._agent_render(self._env,
+                            [5, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
@@ -713,6 +715,46 @@ class CapEnv(gym.Env):
                         (locx + tile_w, locy),
                         (locx, locy + tile_h)],
                         color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
+
+    def _agent_render(self, env, rend_loc, rend_size):
+        self._team_blue = self.team_blue # Remove following two lines if V2 is merged
+        self._team_red = self.team_red
+
+        tile_w = rend_size[0] / len(env)
+        tile_h = rend_size[1] / len(env[0])
+
+        for entity in self._team_blue+self._team_red:
+            if not entity.isAlive: continue
+            x,y = entity.get_loc()
+            locx, locy = rend_loc
+            locx += x * tile_w
+            locy += y * tile_h
+            cur_color = COLOR_DICT[TEAM1_UGV] if entity.team == TEAM1_BACKGROUND else COLOR_DICT[TEAM2_UGV]
+            cur_color = np.divide(cur_color, 255.0)
+            self.viewer.draw_polygon([
+                (locx, locy),
+                (locx + tile_w, locy),
+                (locx + tile_w, locy + tile_h),
+                (locx, locy + tile_h)], color=cur_color)
+
+            if entity.air:
+                self.viewer.draw_polyline([
+                    (locx, locy),
+                    (locx + tile_w, locy + tile_h)],
+                    color=(0,0,0), linewidth=2)
+                self.viewer.draw_polyline([
+                    (locx + tile_w, locy),
+                    (locx, locy + tile_h)],
+                    color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
+
+            if entity.marker is not None:
+                ratio = 0.6
+                color = np.divide(entity.marker, 255.0)
+                self.viewer.draw_polygon([
+                    (locx + tile_w * ratio, locy + tile_h * ratio),
+                    (locx + tile_w, locy + tile_h * ratio),
+                    (locx + tile_w, locy + tile_h),
+                    (locx + tile_w * ratio, locy + tile_h)], color=color)
 
     def close(self):
         if self.viewer: self.viewer.close()
