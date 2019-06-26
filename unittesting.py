@@ -1,11 +1,10 @@
 import unittest
 import gym
 import gym_cap
-
 import numpy as np
 import random
 import time
-
+import test_maps
 import policy
 
 ENV_NAME = 'cap-v0'
@@ -18,85 +17,6 @@ def repeat(times):
                 f(*args)
         return callwrapper
     return repeatwrapper
-
-class TestBuild(unittest.TestCase):
-    """
-    Test creating the environment under gym registry.
-    Test building map and reseting the game with different configurations/settings.
-    """
-
-    def testBuild(self):
-        " Test if environment build for any random seeds"
-        test_epoch = 50 
-        for epoch in range(test_epoch):
-            env = gym.make(ENV_NAME)
-
-    @repeat(10)
-    def testMapSize(self):
-        " Test if the environment can handle map size. (10~20)"
-        test_epoch = 32 
-        test_maxstep = 100
-        for size in range(10, 20):
-            for epoch in range(test_epoch):
-                env = gym.make(ENV_NAME, map_size=size)
-
-class TestRun(unittest.TestCase):
-
-    def testStepWithPolicyProvided(self):
-        test_maxstep = 150
-        env = gym.make(
-                ENV_NAME,
-                policy_red=policy.random.Random(),
-                policy_blue=policy.random.Random()
-            )
-        for step in range(test_maxstep):
-            s,r,d,i = env.step()
-            if d: break
-
-    def testStepWithBlueActionSpecified(self):
-        test_maxstep = 150
-        env = gym.make(
-                ENV_NAME,
-                policy_red=policy.random.Random(),
-            )
-        for step in range(test_maxstep):
-            action = env.action_space.sample()
-            s,r,d,i = env.step(action)
-            if d: break
-
-class TestInteraction(unittest.TestCase):
-    
-    def testDeterministicInteractionRun(self):
-        self.STOCH_ATTACK = False
-        test_maxstep = 150 
-        env = gym.make(
-                ENV_NAME,
-                policy_red=policy.roomba.Roomba(),
-                policy_blue=policy.roomba.Roomba(),
-            )
-        for step in range(test_maxstep):
-            action = env.action_space.sample()
-            s,r,d,i = env.step(action)
-            if d: break
-
-    def testStochasticInteractionRun(self):
-        self.STOCH_ATTACK = True
-        test_maxstep = 150 
-        env = gym.make(
-                ENV_NAME,
-                policy_red=policy.roomba.Roomba(),
-                policy_blue=policy.roomba.Roomba(),
-            )
-        for step in range(test_maxstep):
-            action = env.action_space.sample()
-            s,r,d,i = env.step(action)
-            if d: break
-
-class TestAgentTeamMemory(unittest.TestCase):
-    pass
-
-class TestAgentIndivMemory(unittest.TestCase):
-    pass
 
 class TestAgentGetObs(unittest.TestCase):
 
@@ -121,13 +41,21 @@ class TestAgentGetObs(unittest.TestCase):
 
     @repeat(10)
     def testComGround(self):
-        " Communication between ground and air test"
-        env = gym.make(ENV_NAME)
+        " Communication between ground and ground test"
+        board = open('board.txt')
+
+        content = board.read()
+        print(content)
+        env = gym.make(ENV_NAME, custom_board=content)
         env.NUM_UAV = 2
         env.COM_GROUND = True
         env.reset()
-        for entity in env.team_blue+env.team_red:
-            entity.get_obs(env)
+        #for entity in env.team_blue+env.team_red:
+        entity = env.team_blue[0]
+        print(str(entity.get_loc[0])+ str(entity.get_loc[1]))
+        arr = entity.get_obs(env)
+        np.savetxt('solution1.txt', arr)
+        board.close()
 
 if __name__ == '__main__':
     unittest.main()
