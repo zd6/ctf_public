@@ -4,7 +4,7 @@ import gym_cap
 import numpy as np
 import random
 import time
-import test_maps
+
 import policy
 
 ENV_NAME = 'cap-v0'
@@ -42,20 +42,17 @@ class TestAgentGetObs(unittest.TestCase):
     @repeat(10)
     def testComGround(self):
         " Communication between ground and ground test"
-        board = open('board.txt')
-
-        content = board.read()
-        print(content)
-        env = gym.make(ENV_NAME, custom_board=content)
+        env = gym.make(ENV_NAME, custom_board='board.txt')
         env.NUM_UAV = 2
+        env.BLUE_PARTIAL = False
         env.COM_GROUND = True
         env.reset()
         #for entity in env.team_blue+env.team_red:
         entity = env.team_blue[0]
-        print(str(entity.get_loc[0])+ str(entity.get_loc[1]))
-        arr = entity.get_obs(env)
-        np.savetxt('solution1.txt', arr)
-        board.close()
+
+        print(entity.get_obs(env))
+
+
 
 if __name__ == '__main__':
     unittest.main()
