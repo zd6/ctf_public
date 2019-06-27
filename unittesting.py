@@ -42,15 +42,13 @@ class TestAgentGetObs(unittest.TestCase):
     @repeat(10)
     def testComGround(self):
         " Communication between ground and ground test"
-        env = gym.make(ENV_NAME, custom_board='board.txt')
+        env = gym.make(ENV_NAME)
         env.NUM_UAV = 2
         env.BLUE_PARTIAL = False
         env.COM_GROUND = True
-        env.reset()
-        #for entity in env.team_blue+env.team_red:
-        entity = env.team_blue[0]
-
-        print(entity.get_obs(env))
+        env.reset(custom_board='board.txt')
+        for entity in env.team_blue+env.team_red:
+            print(entity.get_loc())
 
 
 
