@@ -33,10 +33,15 @@ class TestBuild(unittest.TestCase):
                 env = gym.make(ENV_NAME, map_size=size)
 
 class TestAgentTeamMemory(unittest.TestCase):
-    pass
+    env = gym.make(ENV_NAME)
+    env.update_global_memory(env)
+    print(env.blue_memory, env.red_memory)
 
 class TestAgentIndivMemory(unittest.TestCase):
-    pass
+    env = gym.make(ENV_NAME)
+    for agent in env.team_blue + env.team_red:
+        agent.update_memory(env)
+        print(agent.memory)
 
 class TestAgentGetObs(unittest.TestCase):
 
