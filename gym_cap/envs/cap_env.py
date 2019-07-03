@@ -198,10 +198,10 @@ class CapEnv(gym.Env):
 
         self.blue_win = False
         self.red_win = False
-        self.red_flag = False
-        self.blue_flag = False
-        self.red_die = False
-        self.blue_die = False
+        self.red_flag_captured = False
+        self.blue_flag_captured = False
+        self.red_eliminated = False
+        self.blue_eliminated = False
 
         # Necessary for human mode
         self.first = True
@@ -266,9 +266,9 @@ class CapEnv(gym.Env):
             return reward
         elif mode == 'flag':
             # Flag game reward
-            if self.red_flag:
+            if self.red_flag_captured:
                 return 100
-            if self.blue_flag:
+            if self.blue_flag_captured:
                 return -100
         elif mode == 'combat':
             # Aggressive combat game. Elliminate enemy to win
@@ -276,11 +276,11 @@ class CapEnv(gym.Env):
             return 100 * red_alive / TEAM2_UGV
         elif mode == 'defense':
             # Lose reward if flag is lost.
-            if self.blue_flag:
+            if self.blue_flag_captured:
                 return -100
         elif mode == 'capture':
             # Reward only by capturing (sparse)
-            if self.red_flag:
+            if self.red_flag_captured:
                 return 100
 
 
@@ -646,12 +646,12 @@ class CapEnv(gym.Env):
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
                     self.red_win = True
-                    self.blue_flag = True
+                    self.blue_flag_captured = True
                     
         # TODO Change last condition for multi agent model
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
             self.blue_win = True
-            self.red_die = True
+            self.red_eliminated = True
 
         has_alive_entity = False
         for i in self._team_blue:
@@ -660,11 +660,11 @@ class CapEnv(gym.Env):
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM2_FLAG:
                     self.blue_win = True
-                    self.red_flag = True
+                    self.red_flag_captured = True
                     
         if not has_alive_entity:
             self.red_win = True
-            self.blue_die = True
+            self.blue_eliminated = True
 
         reward = self._create_reward()
 
