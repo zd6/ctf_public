@@ -24,18 +24,18 @@ class Agent:
         """
         self.isAlive = True
         self.x, self.y = loc
-        self.length, self.breath = map_only.shape
         self.step = UGV_STEP
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.air = False
-        self.memory = np.empty((self.length, self.breath))
+        self.memory = np.empty_like(map_only)
         self.memory_mode = "None"
         #self.ai = EnemyAI(map_only)
         self.team = team_number
+        self.marker = None
         self.move_selected = False
 
-    def move(self, action, env, team_home):
+    def move(self, action, env, static_map):
         """
         Moves each unit individually. Checks if action is valid first.
 
@@ -47,19 +47,31 @@ class Agent:
             Action the unit is to take
         env         : list
             the environment to move units in
-        team_home   : list
+        static_map   : list
             easily place the correct home tiles
         """
+
+
+        # Define channel and represented number
+        if self.air:
+            ch = CHANNEL[TEAM1_UAV] if self.team == TEAM1_BACKGROUND else CHANNEL[TEAM2_UAV]
+            icon = REPRESENT[TEAM1_UAV] if self.team == TEAM1_BACKGROUND else REPRESENT[TEAM2_UAV]
+        else:
+            ch = CHANNEL[TEAM1_UGV] if self.team == TEAM1_BACKGROUND else CHANNEL[TEAM2_UGV]
+            icon = REPRESENT[TEAM1_UGV] if self.team == TEAM1_BACKGROUND else REPRESENT[TEAM2_UGV]
+
+        # If agent is dead, dont move
         if not self.isAlive:
-            if env[self.x][self.y] == DEAD:
-                env[self.x][self.y] = team_home[self.x][self.y]   # agent replaced with home background after it dies
+            dead_channel = CHANNEL[DEAD]
+            if env[self.x][self.y][dead_channel] == REPRESENT[DEAD]:
+                env[self.x][self.y][dead_channel] = 0
+            env[self.x][self.y][ch] = 0
             return
         
         if action == "X":
             pass
         
         elif action in ["N", "S", "E", "W"]:
-            # Air moves
             new_coord = {"N": [self.x, self.y - self.step],
                          "S": [self.x, self.y + self.step],
                          "E": [self.x + self.step, self.y],
@@ -67,25 +79,23 @@ class Agent:
             new_coord = new_coord[action]
 
             # Out of bound 
-            length, width = env.shape
+            length, width = static_map.shape
             if new_coord[0] < 0: new_coord[0] = 0
             if new_coord[1] < 0: new_coord[1] = 0
             if new_coord[0] >= length: new_coord[0] = length-1
             if new_coord[1] >= width: new_coord[1] = width-1
+            new_coord = tuple(new_coord)
 
             # Not able to move
-            if (self.x, self.y) == new_coord \
-                or (self.air and env[new_coord[0]][new_coord[1]] in [TEAM1_UAV, TEAM2_UAV]) \
-                or (not self.air and env[new_coord[0]][new_coord[1]] in [OBSTACLE, TEAM1_UGV, TEAM2_UGV]):
-                    return
+            if (self.x, self.y) == new_coord: return
+            # if self.air and env[new_coord[0], new_coord[1], ch] != 0: return
+            if not self.air and env[new_coord[0], new_coord[1], ch] != 0: return
+            if not self.air and static_map[new_coord] == OBSTACLE: return
 
             # Make a movement
-            env[self.x][self.y] = team_home[self.x][self.y]
+            env[self.x, self.y, ch] = 0
             self.x, self.y = new_coord
-            if self.team == TEAM1_BACKGROUND:
-                env[self.x, self.y] = TEAM1_UAV if self.air else TEAM1_UGV
-            else:
-                env[self.x, self.y] = TEAM2_UAV if self.air else TEAM2_UGV        
+            env[self.x, self.y, ch] = icon
         else:
             print("error: wrong action selected")
     
