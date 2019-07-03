@@ -33,15 +33,21 @@ class TestBuild(unittest.TestCase):
                 env = gym.make(ENV_NAME, map_size=size)
 
 class TestAgentTeamMemory(unittest.TestCase):
+    "Testing Team memory"
+    test_epoch = 5
     env = gym.make(ENV_NAME)
-    env.update_global_memory(env)
-    print(env.blue_memory, env.red_memory)
+    for epoch in range(test_epoch):
+        env.reset(custom_board='test_maps/board1.txt')
+        env.update_global_memory(env)
 
 class TestAgentIndivMemory(unittest.TestCase):
+    "Testing Individual memory"
+    test_epoch = 5
     env = gym.make(ENV_NAME)
-    for agent in env.team_blue + env.team_red:
-        agent.update_memory(env)
-        print(agent.memory)
+    for epoch in range(test_epoch):        
+        env.reset(custom_board='test_maps/board1.txt')
+        for agent in env.team_blue + env.team_red:
+            agent.update_memory(env)
 
 class TestAgentGetObs(unittest.TestCase):
 
