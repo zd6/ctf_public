@@ -48,7 +48,12 @@ class TestAgentGetObs(unittest.TestCase):
         env.COM_GROUND = True
         env.reset(custom_board='board.txt')
         for entity in env.team_blue+env.team_red:
-            print(entity.get_loc())
+            loc = 18, 18
+            if entity.get_loc() == loc:
+                obs = entity.get_obs(env)
+                #np.savetxt('solution1.txt', obs, header='18,18')
+                a = np.loadtxt('solution1.txt')
+                assert(obs.all() == a.all())
 
 
 
