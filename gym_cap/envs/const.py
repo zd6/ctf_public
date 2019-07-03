@@ -17,6 +17,7 @@ UGV_A_RANGE = 2
 # Game Default Setting
 RL_SUGGESTIONS = False
 STOCH_TRANSITIONS = False
+STOCH_TRANSITIONS_EPS = 0.1
 STOCH_ATTACK = False
 STOCH_ATTACK_BIAS = 1
 STOCH_ZONES = False
@@ -85,3 +86,33 @@ COLOR_DICT = {UNKNOWN : (200, 200, 200),
               BLACK : (0, 0, 0),
               SUGGESTION : (50, 50, 50),
               COMPLETED : (100, 0, 0)}
+NUM_CHANNEL = 6
+CHANNEL = {
+       UNKNOWN: 0,
+       DEAD: 0,
+       TEAM1_BACKGROUND: 1,
+       TEAM2_BACKGROUND: 1,
+       TEAM1_FLAG: 2,
+       TEAM2_FLAG: 2,
+       OBSTACLE: 3,
+       TEAM1_UGV: 4,
+       TEAM2_UGV: 4,
+       TEAM1_UAV: 5,
+       TEAM2_UAV: 5
+   }
+
+# Represented constant
+REPRESENT = {
+        UNKNOWN: 1,
+        DEAD: -1,
+        TEAM1_BACKGROUND: 1,
+        TEAM2_BACKGROUND: -1,
+        TEAM1_FLAG: 1,
+        TEAM2_FLAG: -1,
+        OBSTACLE: 1,
+        TEAM1_UGV: 1,
+        TEAM2_UGV: -1,
+        TEAM1_UAV: 1,
+        TEAM2_UAV: -1
+    }
+

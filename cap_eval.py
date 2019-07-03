@@ -1,16 +1,14 @@
+import sys
 import time
 import gym
 import gym_cap
 import numpy as np
-import sys
+import random
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # modules needed to generate policies
-import policy.roomba
-import policy.random
-import policy.patrol
-import policy.defense
+import policy
    
 args_list = []
 kwargs_list = ['episode', 'blue_policy', 'red_policy',
@@ -32,23 +30,37 @@ while i < len(sys.argv):
     
 # default cases
 episode = param.get('episode', '5')
-param['blue_policy'] = param.get('blue_policy', 'random')
-param['red_policy'] = param.get('red_policy', 'random')
-blue_policy = getattr(policy, param['blue_policy'])
-red_policy = getattr(policy, param['red_policy'])
+param['blue_policy'] = param.get('blue_policy', 'Random')
+param['red_policy'] = param.get('red_policy', 'Random')
+blue_policy = getattr(policy, param['blue_policy'])()
+red_policy = getattr(policy, param['red_policy'])()
 map_size = param.get('map_size', '20')
 time_step = param.get('time_step', '150')
+
+# TODO: Make several other test board for evaluation
+fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,4)] 
 
 if __name__ == '__main__':
     
     # initialize the environment
-    env = gym.make("cap-v0")    
+    env = gym.make(
+            "cap-v0",
+            map_size = int(map_size),
+            policy_blue = blue_policy,
+            policy_red = red_policy,
+            custom_board=random.choice(fair_maps)
+        )
+    # TODO: add configuration file or add path to the program argument
+    env.BLUE_PARTIAL = False
+    env.RED_PARTIAL = False
+    env.STOCH_ATTACK = True
+    env.STOCH_ATTACK_BIAS = 3
     
     game_finish = False
     steps = 0
     team = ["NEITHER", "BLUE", "RED"]
     red_score = [0]
-    blue_score = [0]
+    blue_score = []
     statw = []
     statf = []
     statd = []
@@ -56,10 +68,9 @@ if __name__ == '__main__':
     asteps = []
     
     # reset the environment and select the policies for each of the team
-    observation = env.reset(map_size = int(map_size), policy_blue = blue_policy,
-                            policy_red = red_policy)
+    observation = env.reset(
+        )
     
-    print("  Episodes Progress Bar \n")
     start_time = time.time()
     for iterate in tqdm(range(int(episode))):
         iter_time = time.time()
@@ -84,10 +95,10 @@ if __name__ == '__main__':
         times.append(episode_time)
         asteps.append(steps)
         
-        env.reset()
+        env.reset(custom_board=random.choice(fair_maps))
         game_finish = False
         
-        if reward > 0: blue_score.append(reward)
+        blue_score.append(reward)
     
     total_time = time.time() - start_time
     print("--------------------------------------- Statistics ---------------------------------------")
@@ -96,7 +107,7 @@ if __name__ == '__main__':
     wind = dict(zip(*np.unique(statd, return_counts=True)))
     print("win # overall in {} episodes: {}\nwin # in capturing flag\t   : {}\nwin # in killing other team: {}\ntime per episode: {} s\ntotal time: {} s\nmean steps: {}"
           .format(episode, win, winf, wind, np.mean(times), total_time, np.mean(asteps)))
-    blue_plot = plt.hist(np.mean(blue_score))
+    blue_plot = plt.hist(blue_score)
     plt.xlabel("Blue Team Mean Score")
     plt.ylabel("Blue Team")
     plt.show(blue_plot)
