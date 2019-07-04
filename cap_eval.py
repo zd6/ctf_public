@@ -26,19 +26,16 @@ parser.add_argument('--fair_map', help='run on fair map', action='store_true')
 parser.add_argument('--cores', type=int, help='number of cores (-1 to use all)', default=1)
 args = parser.parse_args()
 
-# default cases
-episode = args.episode
-blue_policy = getattr(policy, args.blue_policy)()
-red_policy = getattr(policy, args.red_policy)()
-
 # TODO: Make several other test board for evaluation
-fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,5)] 
+fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,4)] 
 
 # initialize the environment
 
 # TODO: add configuration file or add path to the program argument
 def _roll(n):
-    num_episode = int(episode)//cores
+    num_episode = int(args.episode)//cores
+    blue_policy = getattr(policy, args.blue_policy)()
+    red_policy = getattr(policy, args.red_policy)()
     env = gym.make(
             "cap-v0",
             map_size = args.map_size,
@@ -53,9 +50,6 @@ def _roll(n):
     ave_step = []
 
     for iterate in trange(num_episode, ncols=50, position=n):
-        if iterate == num_episode//2:
-            env.reset(policy_blue=red_policy, policy_red=blue_policy)
-
         if args.fair_map:
             env.reset(custom_board=random.choice(fair_maps))
         else:
@@ -117,9 +111,9 @@ stat_eliminated = np.stack([stat_eliminated, 100*stat_eliminated/sum(stat_elimin
 print('\n'*(cores-1))
 print("--------------------------------------- Statistics ---------------------------------------")
 print("TEAM 1 : {}, TEAM 2 : {}".format(args.blue_policy, args.red_policy))
-str_format = "{:<12}     | BLUE : {:<6}({:<4}%) | DRAW : {:<6}({:<4}%) | RED : {:<6}({:<4}%) |"
+str_format = "{:<12}     | BLUE : {:<6.0f}({:<4.1f}%) | DRAW : {:<6.0f}({:<4.1f}%) | RED : {:<6.0f}({:<4.1f}%) |"
 print(str_format.format('OVERALL', *stat_win))
 print(str_format.format('WIN BY FLAG', *stat_flag))
 print(str_format.format('WIN BY KILL', *stat_eliminated))
-print("Average Run Time : {} ± {} sec".format(np.mean(ave_time), np.std(ave_time)))
-print("Average Step     : {} ± {} sec".format(np.mean(ave_step), np.std(ave_step)))
+print("Average Run Time : {:.5f} ± {:.5f} sec".format(np.mean(ave_time), np.std(ave_time)))
+print("Average Step     : {:.5f} ± {:.5f} sec".format(np.mean(ave_step), np.std(ave_step)))
