@@ -53,7 +53,10 @@ class TestAgentGetObs(unittest.TestCase):
                 obs = entity.get_obs(env)
                 #np.savetxt('solution1.txt', obs, header='18,18')
                 a = np.loadtxt('solution1.txt')
-                assert(obs.all() == a.all())
+                for ix, iy in np.ndindex(a.shape):
+                    assert(a[ix, iy] == obs[ix, iy])
+
+
 
 
 
