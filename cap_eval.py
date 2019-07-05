@@ -1,4 +1,7 @@
 import sys
+import argparse
+import multiprocessing
+from multiprocessing import Pool
 import time
 import gym
 import gym_cap
@@ -6,112 +9,111 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from tqdm import *
 
 # modules needed to generate policies
 import policy
-   
-args_list = []
-kwargs_list = ['episode', 'blue_policy', 'red_policy',
-               'num_blue', 'num_red', 'num_uav',
-               'map_size', 'time_step']
-param = {}
 
-i = 1
-while i < len(sys.argv):
-    key = sys.argv[i][2:]
-    if key in kwargs_list:
-        param[key] = sys.argv[i+1]
-        i += 1
-    elif key in args_list:
-        param[key] = True
-    else:
-        raise AttributeError("Wrong argument name given")
-    i += 1
-    
-# default cases
-episode = param.get('episode', '5')
-param['blue_policy'] = param.get('blue_policy', 'Random')
-param['red_policy'] = param.get('red_policy', 'Random')
-blue_policy = getattr(policy, param['blue_policy'])()
-red_policy = getattr(policy, param['red_policy'])()
-map_size = param.get('map_size', '20')
-time_step = param.get('time_step', '150')
+description = "Evaluate two different policy."
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('--episode', type=int, help='number of episodes to run', default=100)
+parser.add_argument('--blue_policy', type=str, help='blue policy', default='Random')
+parser.add_argument('--red_policy', type=str, help='blue policy', default='Random')
+parser.add_argument('--config_path', type=str, help='configuration path', default=None)
+parser.add_argument('--map_size', type=int, help='size of the board', default=20)
+parser.add_argument('--time_step', type=int, help='maximum time step (default:150)', default=150)
+parser.add_argument('--fair_map', help='run on fair map', action='store_true')
+parser.add_argument('--cores', type=int, help='number of cores (-1 to use all)', default=1)
+args = parser.parse_args()
 
 # TODO: Make several other test board for evaluation
 fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,4)] 
 
-if __name__ == '__main__':
-    
-    # initialize the environment
+# initialize the environment
+
+# TODO: add configuration file or add path to the program argument
+def _roll(n):
+    num_episode = int(args.episode)//cores
+    blue_policy = getattr(policy, args.blue_policy)()
+    red_policy = getattr(policy, args.red_policy)()
     env = gym.make(
             "cap-v0",
-            map_size = int(map_size),
+            map_size = args.map_size,
             policy_blue = blue_policy,
             policy_red = red_policy,
-            custom_board=random.choice(fair_maps)
+            config_path=args.config_path
         )
-    # TODO: add configuration file or add path to the program argument
-    env.BLUE_PARTIAL = False
-    env.RED_PARTIAL = False
-    env.STOCH_ATTACK = True
-    env.STOCH_ATTACK_BIAS = 3
-    
-    game_finish = False
-    steps = 0
-    team = ["NEITHER", "BLUE", "RED"]
-    red_score = [0]
-    blue_score = []
-    statw = []
-    statf = []
-    statd = []
-    times = []
-    asteps = []
-    
-    # reset the environment and select the policies for each of the team
-    observation = env.reset(
-        )
-    
-    start_time = time.time()
-    for iterate in tqdm(range(int(episode))):
+    stat_win = np.array([0, 0, 0])
+    stat_flag = np.array([0, 0, 0]) # Win mode
+    stat_eliminated = np.array([0, 0, 0]) # Win mode
+    ave_time = []
+    ave_step = []
+
+    for iterate in trange(num_episode, ncols=50, position=n):
+        if args.fair_map:
+            env.reset(custom_board=random.choice(fair_maps))
+        else:
+            env.reset()
+
         iter_time = time.time()
-        while not game_finish:
-    
+        for steps in range(int(args.time_step)):
             # feedback from environment
-            observation, reward, game_finish, info = env.step()
-    
-            steps += 1
-            if steps == int(time_step):
-                # break after 150 or 'time_step' steps
+            _, _, game_finish, _ = env.step()
+
+            if game_finish:
                 break 
 
-        episode_time = time.time() - iter_time
+        ave_time.append(time.time() - iter_time)
+        ave_step.append(steps)
         
-        result = team[1] if (env.blue_win == True and env.red_win == False) else team[2] if (env.red_win == True and env.blue_win == False) else team[0]
-        flag = team[1] if (env.blue_flag == True and env.red_die == False) else team[2] if (env.red_flag == True and env.blue_die == False) else team[0]
-        die = team[1] if (env.blue_die == True and env.red_die == False) else team[2] if (env.red_die == True and env.blue_die == False) else team[0]
-        statw.append(result)
-        statf.append(flag)
-        statd.append(die)
-        times.append(episode_time)
-        asteps.append(steps)
-        
-        env.reset(custom_board=random.choice(fair_maps))
-        game_finish = False
-        
-        blue_score.append(reward)
-    
-    total_time = time.time() - start_time
-    print("--------------------------------------- Statistics ---------------------------------------")
-    win = dict(zip(*np.unique(statw, return_counts=True)))
-    winf = dict(zip(*np.unique(statf, return_counts=True)))
-    wind = dict(zip(*np.unique(statd, return_counts=True)))
-    print("win # overall in {} episodes: {}\nwin # in capturing flag\t   : {}\nwin # in killing other team: {}\ntime per episode: {} s\ntotal time: {} s\nmean steps: {}"
-          .format(episode, win, winf, wind, np.mean(times), total_time, np.mean(asteps)))
-    blue_plot = plt.hist(blue_score)
-    plt.xlabel("Blue Team Mean Score")
-    plt.ylabel("Blue Team")
-    plt.show(blue_plot)
-    
-    # closing CtF environment           
+        stat_win += np.array([
+                env.blue_win,
+                not (env.blue_win or env.red_win),
+                env.red_win
+            ])
+        stat_flag += np.array([
+                env.red_flag_captured,
+                not (env.blue_flag_captured or env.red_flag_captured),
+                env.blue_flag_captured
+            ])
+        stat_eliminated += np.array([
+                env.red_eliminated,
+                not (env.blue_eliminated or env.red_eliminated),
+                env.blue_eliminated
+            ])
     env.close()
-    del gym.envs.registry.env_specs['cap-v0']
+
+    return stat_win, stat_flag, stat_eliminated, ave_time, ave_step
+
+stat_win = np.array([0, 0, 0])
+stat_flag = np.array([0, 0, 0]) # Win mode
+stat_eliminated = np.array([0, 0, 0]) # Win mode
+ave_time = []
+ave_step = []
+
+if args.cores == -1:
+    cores = multiprocessing.cpu_count()
+else:
+    cores = args.cores
+
+L = list(range(cores))
+with Pool(processes=cores) as p:
+    for i, result in enumerate(p.imap_unordered(_roll, L)):
+        stat_win += result[0]
+        stat_flag += result[1]
+        stat_eliminated += result[2]
+        ave_time.extend(result[3])
+        ave_step.extend(result[4])
+
+stat_win        = np.stack([stat_win, 100*stat_win/sum(stat_win)]).flatten('F')
+stat_flag       = np.stack([stat_flag, 100*stat_flag/sum(stat_flag)]).flatten('F')
+stat_eliminated = np.stack([stat_eliminated, 100*stat_eliminated/sum(stat_eliminated)]).flatten('F')
+print('\n'*(cores-1))
+print("--------------------------------------- Statistics ---------------------------------------")
+print("TEAM 1 : {}, TEAM 2 : {}".format(args.blue_policy, args.red_policy))
+str_format = "{:<12}     | BLUE : {:<6.0f}({:<4.1f}%) | DRAW : {:<6.0f}({:<4.1f}%) | RED : {:<6.0f}({:<4.1f}%) |"
+print(str_format.format('OVERALL', *stat_win))
+print(str_format.format('WIN BY FLAG', *stat_flag))
+print(str_format.format('WIN BY KILL', *stat_eliminated))
+print("Average Run Time : {:.5f} ± {:.5f} sec".format(np.mean(ave_time), np.std(ave_time)))
+print("Average Step     : {:.5f} ± {:.5f} sec".format(np.mean(ave_step), np.std(ave_step)))
