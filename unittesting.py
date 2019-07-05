@@ -158,7 +158,7 @@ class TestAgentGetObs(unittest.TestCase):
         env = gym.make(ENV_NAME)
         env.COM_FREQUENCY = random.random()  # Try random frequency
         env.reset()
-        for entity in env.team_blue + env.team_red:
+        for entity in env._team_blue + env._team_red:
             entity.get_obs(env)
 
     @repeat(10)
