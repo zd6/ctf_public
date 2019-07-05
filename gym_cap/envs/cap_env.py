@@ -609,8 +609,8 @@ class CapEnv(gym.Env):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
             else:
-                if len(entities_action) > self.NUM_BLUE + self.NUM_UAV:
-                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                if len(entities_action) != self.NUM_BLUE + self.NUM_UAV:
+                    sys.exit("ERROR: You entered wrong number of moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
                 move_list_blue = entities_action
 
 
