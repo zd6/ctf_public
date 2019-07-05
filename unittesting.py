@@ -35,24 +35,27 @@ class TestAgentGetObs(unittest.TestCase):
         env = gym.make(ENV_NAME)
         env.NUM_UAV = 2
         env.COM_AIR = True
-        env.reset()
+        env.reset(custom_board = 'test_maps/board2.txt')
         for entity in env.team_blue+env.team_red:
-            entity.get_obs(env)
+            loc = 19, 19
+            if entity.get_loc() == loc:
+                obs = entity.get_obs(env)
+                a = np.loadtxt('test_maps/solution_maps/solution2.txt')
+                for ix, iy in np.ndindex(a.shape):
+                    assert(a[ix, iy] == obs[ix, iy])
 
     @repeat(10)
     def testComGround(self):
         " Communication between ground and ground test"
         env = gym.make(ENV_NAME)
         env.NUM_UAV = 2
-        env.BLUE_PARTIAL = False
         env.COM_GROUND = True
-        env.reset(custom_board='board.txt')
+        env.reset(custom_board='test_maps/board1.txt')
         for entity in env.team_blue+env.team_red:
             loc = 18, 18
             if entity.get_loc() == loc:
                 obs = entity.get_obs(env)
-                #np.savetxt('solution1.txt', obs, header='18,18')
-                a = np.loadtxt('solution1.txt')
+                a = np.loadtxt('test_maps/solution_maps/solution1.txt')
                 for ix, iy in np.ndindex(a.shape):
                     assert(a[ix, iy] == obs[ix, iy])
 
