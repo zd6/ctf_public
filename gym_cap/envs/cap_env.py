@@ -8,6 +8,7 @@ except ImportError:
     
 import random
 import sys
+import traceback
 
 import gym
 from gym import spaces
@@ -47,8 +48,11 @@ class CapEnv(gym.Env):
 
         self._parse_config()
 
-        self.policy_blue = None
-        self.policy_red = None
+        self._policy_blue = None
+        self._policy_red = None
+
+        self._blue_trajectory = []
+        self._red_trajectory = []
 
         self.reset(map_size, mode=mode,
                 policy_blue=kwargs.get('policy_blue', None),
@@ -67,7 +71,7 @@ class CapEnv(gym.Env):
                 'control': ['CONTROL_ALL'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
-                'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS',
+                'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS',
                         'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
             }
         config_datatype = {
@@ -75,7 +79,8 @@ class CapEnv(gym.Env):
                 'control': [bool],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
-                'settings': [bool, bool, bool, int, bool, bool, bool]
+                'settings': [bool, bool, float,
+                        bool, int, bool, bool, bool]
             }
 
         if config_path is None:
@@ -130,46 +135,44 @@ class CapEnv(gym.Env):
 
         # SET INTERACTION
         if self.STOCH_ATTACK:
-            self.interaction = self._interaction_stoch
+            self._interaction = self._interaction_stoch
         else:
-            self.interaction = self._interaction_determ
+            self._interaction = self._interaction_determ
 
         # INITIALIZE MAP
         if custom_board is not None:
             # Reset using pre-written custom board
-            try:
-                custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            except OSError as e:
-                raise e('File name {} failed to open'.format(custom_board))
-                exit() 
+            custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
 
-            self._env, self.team_home, map_obj = CreateMap.set_custom_map(custom_map)
+            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
+            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
         else:
             map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY]
-            self._env, self.team_home = CreateMap.gen_map('map',
+            self._env, self._static_map, agent_locs = CreateMap.gen_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
 
-        self.map_size = (len(self._env), len(self._env[0]))
+        self.map_size = tuple(self._static_map.shape)
         self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1]))
+        self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
         if map_obj[2] == 0:
             self.mode = "sandbox"
 
         # INITIALIZE TEAM
-        self.team_blue, self.team_red = self._map_to_list(self._env, self.team_home)
+        self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
 
         # INITIALIZE POLICY
         if policy_blue is not None:
             try:
-                self.policy_blue = policy_blue
+                self._policy_blue = policy_blue
             except Exception as e:
-                print(e)
-                raise Exception("Blue policy does not have Policy_gen object")
+                print("Blue policy does not have Policy_gen object", e)
+                raise
         if policy_red is not None:
             try:
-                self.policy_red = policy_red
+                self._policy_red = policy_red
             except Exception as e:
-                print(e)
-                raise Exception("Red policy does not have Policy_gen object")
+                print("Red policy does not have Policy_gen object", e)
+                raise
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
@@ -177,59 +180,67 @@ class CapEnv(gym.Env):
             self.red_memory[:] = const.UNKNOWN
 
         if self.INDIV_MEMORY == "fog":
-            for agent in self.team_blue + self.team_red:
+            for agent in self._team_blue + self._team_red:
                 agent.memory[:] = const.UNKNOWN
                 agent.memory_mode = "fog"
 
         # INITIATE POLICY
-        if self.policy_blue is not None:
-            self.policy_blue.initiate(self.team_home, self.team_blue)
-        if self.policy_red is not None:
-            self.policy_red.initiate(self.team_home, self.team_red)
+        if self._policy_blue is not None:
+            self._policy_blue.initiate(self._static_map, self._team_blue)
+        if self._policy_red is not None:
+            self._policy_red.initiate(self._static_map, self._team_red)
 
-        self.create_observation_space()
+        # INITIALIZE TRAJECTORY
+        self._blue_trajectory = []
+        self._red_trajectory = []
+
+        self._create_observation_space()
 
         self.blue_win = False
         self.red_win = False
-        self.red_flag = False
-        self.blue_flag = False
-        self.red_die = False
-        self.blue_die = False
+        self.red_flag_captured = False
+        self.blue_flag_captured = False
+        self.red_eliminated = False
+        self.blue_eliminated = False
 
         # Necessary for human mode
         self.first = True
 
         return self.get_obs_blue
 
-    def _map_to_list(self, complete_map, static_map):
+    def _construct_agents(self, agent_coords, static_map):
         """
-        From given map, it generates objects of agents and push them to list
+        From given coordinates, it generates objects of agents and make them into the list.
 
-        self            : objects
+        team_blue --> [air1, air2, ... , ground1, ground2, ...]
+        team_red  --> [air1, air2, ... , ground1, ground2, ...]
+
         complete_map    : 2d numpy array
         static_map      : 2d numpy array
+
         """
         team_blue = []
         team_red = []
 
-        for y in range(len(complete_map)):
-            for x in range(len(complete_map[0])):
-                if complete_map[x][y] == TEAM1_UGV:
-                    cur_ent = GroundVehicle([x, y], static_map, TEAM1_BACKGROUND)
+        for element, coords in agent_coords.items():
+            if coords is None: continue
+            for coord in coords:
+                if element == TEAM1_UGV:
+                    cur_ent = GroundVehicle(coord, static_map, TEAM1_BACKGROUND)
                     team_blue.append(cur_ent)
-                elif complete_map[x][y] == TEAM1_UAV:
-                    cur_ent = AerialVehicle([x, y], static_map, TEAM1_BACKGROUND)
+                elif element == TEAM1_UAV:
+                    cur_ent = AerialVehicle(coord, static_map, TEAM1_BACKGROUND)
                     team_blue.insert(0, cur_ent)
-                elif complete_map[x][y] == TEAM2_UGV:
-                    cur_ent = GroundVehicle([x, y], static_map, TEAM2_BACKGROUND)
+                elif element == TEAM2_UGV:
+                    cur_ent = GroundVehicle(coord, static_map, TEAM2_BACKGROUND)
                     team_red.append(cur_ent)
-                elif complete_map[x][y] == TEAM2_UAV:
-                    cur_ent = AerialVehicle([x, y], static_map, TEAM2_BACKGROUND)
+                elif element == TEAM2_UAV:
+                    cur_ent = AerialVehicle(coord, static_map, TEAM2_BACKGROUND)
                     team_red.insert(0, cur_ent)
 
         return team_blue, team_red
 
-    def create_reward(self):
+    def _create_reward(self, mode='dense'):
         """
         Range (-100, 100)
 
@@ -239,21 +250,41 @@ class CapEnv(gym.Env):
             CapEnv object
         """
 
-        if self.blue_win:
-            return 100
-        if self.red_win:
-            return -100
+        assert mode in ['dense', 'flag', 'combat', 'defense', 'capture']
 
-        # Dead enemy team gives .5/total units for each dead unit
-        reward = 0
-        red_alive = sum([entity.isAlive for entity in self.team_red])
-        blue_alive = sum([entity.isAlive for entity in self.team_blue])
-        reward += 50.0 * red_alive / TEAM2_UGV
-        reward -= 50.0 * blue_alive / TEAM1_UGV
+        if mode == 'dense':
+            # Dead enemy team gives .5/total units for each dead unit
+            if self.blue_win:
+                return 100
+            if self.red_win:
+                return -100
+            reward = 0
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
+            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.air])
+            reward += 50.0 * red_alive / TEAM2_UGV
+            reward -= 50.0 * blue_alive / TEAM1_UGV
+            return reward
+        elif mode == 'flag':
+            # Flag game reward
+            if self.red_flag_captured:
+                return 100
+            if self.blue_flag_captured:
+                return -100
+        elif mode == 'combat':
+            # Aggressive combat game. Elliminate enemy to win
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
+            return 100 * red_alive / TEAM2_UGV
+        elif mode == 'defense':
+            # Lose reward if flag is lost.
+            if self.blue_flag_captured:
+                return -100
+        elif mode == 'capture':
+            # Reward only by capturing (sparse)
+            if self.red_flag_captured:
+                return 100
 
-        return reward
 
-    def create_observation_space(self):
+    def _create_observation_space(self):
         """
         Creates the observation space in self.observation_space
 
@@ -264,38 +295,39 @@ class CapEnv(gym.Env):
         team    : int
             Team to create obs space for
         """
+        in_bound = lambda x, y: (0<=x) and (x<self.map_size[0]) and (0<=y) and (y<self.map_size[0])
+        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+        
+        unknown_ch = CHANNEL[UNKNOWN]
+        unknown_repr = REPRESENT[UNKNOWN] 
 
         if self.BLUE_PARTIAL:
-            self.observation_space_blue = np.empty(self._env.shape)
-            self.observation_space_blue[:] = -1
-            for agent in self.team_blue:
+            self.observation_space_blue = np.copy(self._env)
+            self.observation_space_blue[:,:,unknown_ch] = unknown_repr
+            for agent in self._team_blue:
                 if not agent.isAlive:
                     continue
                 loc = agent.get_loc()
                 for i in range(-agent.range, agent.range + 1):
                     for j in range(-agent.range, agent.range + 1):
                         locx, locy = i + loc[0], j + loc[1]
-                        if (i * i + j * j <= agent.range ** 2) and \
-                                not (locx < 0 or locx > self.map_size[0] - 1) and \
-                                not (locy < 0 or locy > self.map_size[1] - 1):
-                            self.observation_space_blue[locx][locy] = self._env[locx][locy]
+                        if in_range(i,j,agent.range) and in_bound(locx, locy):
+                            self.observation_space_blue[locx][locy][unknown_ch] = 0
         else:
             self.observation_space_blue = self._env
 
         if self.RED_PARTIAL:
-            self.observation_space_red= np.empty(self._env.shape)
-            self.observation_space_red[:] = -1
-            for agent in self.team_red:
+            self.observation_space_red = np.copy(self._env)
+            self.observation_space_red[:,:,unknown_ch] = unknown_repr
+            for agent in self._team_red:
                 if not agent.isAlive:
                     continue
                 loc = agent.get_loc()
                 for i in range(-agent.range, agent.range + 1):
                     for j in range(-agent.range, agent.range + 1):
                         locx, locy = i + loc[0], j + loc[1]
-                        if (i * i + j * j <= agent.range ** 2) and \
-                                not (locx < 0 or locx > self.map_size[0] - 1) and \
-                                not (locy < 0 or locy > self.map_size[1] - 1):
-                            self.observation_space_red[locx][locy] = self._env[locx][locy]
+                        if in_range(i,j,agent.range) and in_bound(locx, locy):
+                            self.observation_space_red[locx][locy][unknown_ch] = 0
         else:
             self.observation_space_red = self._env
 
@@ -305,15 +337,28 @@ class CapEnv(gym.Env):
 
     @property
     def get_full_state(self):
-        return np.copy(self._env)
+        # Return 2D representation of the state
+        board = np.copy(self._static_map)
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
 
     @property
     def get_team_blue(self):
-        return np.copy(self.team_blue)
+        return np.copy(self._team_blue)
 
     @property
     def get_team_red(self):
-        return np.copy(self.team_red)
+        return np.copy(self._team_red)
 
     @property
     def get_team_grey(self):
@@ -321,11 +366,7 @@ class CapEnv(gym.Env):
 
     @property
     def get_map(self):
-        return np.copy(self.team_home)
-
-    @property
-    def observation_space(self):
-        return self.get_obs_blue
+        return np.copy(self._static_map)
 
     @property
     def get_obs_blue(self):
@@ -337,18 +378,52 @@ class CapEnv(gym.Env):
         red_view = np.copy(target)
 
         # Change red's perspective same as blue
-        swap = [
-            (TEAM1_BACKGROUND, TEAM2_BACKGROUND), # BACKGROUND
-            (TEAM1_UGV, TEAM2_UGV),               # UGV
-            (TEAM1_UAV, TEAM2_UAV),               # UAV
-            (TEAM1_FLAG, TEAM2_FLAG),             # FLAG
-        ]
+        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
 
-        for a, b in swap:
-            red_view[target==a] = b
-            red_view[target==b] = a
+        for ch in swap:
+            red_view[:,:,ch] *= -1
 
         return red_view
+
+    @property
+    def get_obs_blue_render(self):
+        board = np.copy(self._static_map)
+        fog = self.observation_space_blue[:,:,CHANNEL[UNKNOWN]]
+        fog_rep = REPRESENT[UNKNOWN]
+        board[fog==fog_rep] = UNKNOWN
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if fog[loc] == fog_rep: continue
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
+
+    @property
+    def get_obs_red_render(self):
+        board = np.copy(self._static_map)
+        fog = self.observation_space_red[:,:,CHANNEL[UNKNOWN]]
+        fog_rep = REPRESENT[UNKNOWN]
+        board[fog==fog_rep] = UNKNOWN
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if fog[loc] == fog_rep: continue
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
 
     @property
     def get_obs_grey(self):
@@ -367,24 +442,27 @@ class CapEnv(gym.Env):
         team    : int
             Represents which team the unit belongs to
         """
-        loc = entity.get_loc()
-        cur_range = entity.a_range
-        for x in range(-cur_range, cur_range + 1):
-            for y in range(-cur_range, cur_range + 1):
-                locx, locy = x + loc[0], y + loc[1]
-                if (x * x + y * y <= cur_range ** 2) and \
-                        not (locx < 0 or locx > self.map_size[0] - 1) and \
-                        not (locy < 0 or locy > self.map_size[1] - 1):
-                    if entity.team == TEAM1_BACKGROUND and self._env[locx][locy] == TEAM2_UGV:
-                        if self.team_home[loc] == TEAM2_BACKGROUND:
-                            entity.isAlive = False
-                            self._env[loc] = DEAD
-                            break
-                    elif entity.team == TEAM2_BACKGROUND and self._env[locx][locy] == TEAM1_UGV:
-                        if self.team_home[loc] == TEAM1_BACKGROUND:
-                            entity.isAlive = False
-                            self._env[loc] = DEAD
-                            break
+
+        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+
+        loc = np.array(entity.get_loc())
+        if self._static_map[tuple(loc)] == entity.team:
+            return
+
+        enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
+
+        for enemy in enemy_list:
+            if enemy.air: continue
+            if not enemy.isAlive: continue
+            att_range = enemy.a_range
+            enemy_loc = np.array(enemy.get_loc())
+
+            if in_range(*(loc-enemy_loc), att_range):
+                # If enemy is within attack range, declare dead
+                entity.isAlive = False
+                self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
+                break
+        
 
     def _interaction_stoch(self, entity):
         """
@@ -399,36 +477,43 @@ class CapEnv(gym.Env):
         team    : int
             Represents which team the unit belongs to
         """
-        loc = entity.get_loc()
-        cur_range = entity.a_range
-        n_friends = 0
+
+        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+
+        loc = np.array(entity.get_loc())
+
+        enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
+        friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
+
         n_enemies = 0
-        flag = False
-        if entity.team == self.team_home[loc]:
-            n_friends += self.STOCH_ATTACK_BIAS
-        else:
-            n_enemies += self.STOCH_ATTACK_BIAS
+        for enemy in enemy_list:
+            if enemy.air: continue
+            if not enemy.isAlive: continue
+            att_range = enemy.a_range
+            enemy_loc = np.array(enemy.get_loc())
 
-        for x in range(-cur_range, cur_range + 1):
-            for y in range(-cur_range, cur_range + 1):
-                locx, locy = x + loc[0], y + loc[1]
-                if (x * x + y * y <= cur_range ** 2) and \
-                        not (locx < 0 or locx > self.map_size[0] - 1) and \
-                        not (locy < 0 or locy > self.map_size[1] - 1):
-                    if entity.team == TEAM1_BACKGROUND and self._env[locx][locy] == TEAM2_UGV:
-                        n_enemies += 1
-                        flag = True
-                    elif entity.team == TEAM2_BACKGROUND and self._env[locx][locy] == TEAM1_UGV:
-                        n_enemies += 1
-                        flag = True
-                    elif entity.team == TEAM1_BACKGROUND and self._env[locx][locy] == TEAM1_UGV:
-                        n_friends += 1
-                    elif entity.team == TEAM2_BACKGROUND and self._env[locx][locy] == TEAM2_UGV:
-                        n_friends += 1
-        if flag and self.np_random.rand() > n_friends/(n_friends + n_enemies):
+            if in_range(*(loc-enemy_loc), att_range):
+                n_enemies += 1
 
-            entity.isAlive = False
-            self._env[loc] = DEAD
+        n_friends = 0
+        for friend in friend_list:
+            if friend.air: continue
+            if not friend.isAlive: continue
+            att_range = friend.a_range
+            friend_loc = np.array(friend.get_loc())
+
+            if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
+                n_friends += 1
+
+        if n_enemies > 0: # Interaction 
+            # Advantage bias for being in team territory
+            if entity.team == self._static_map[entity.get_loc()]:
+                n_friends += self.STOCH_ATTACK_BIAS
+            else:
+                n_enemies += self.STOCH_ATTACK_BIAS
+            if self.np_random.rand() > n_friends/(n_friends + n_enemies):
+                entity.isAlive = False
+                self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
 
     def seed(self, seed=None):
         """
@@ -442,14 +527,14 @@ class CapEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def update_global_memory(self, env):
+    def _update_global_memory(self, env):
         """ 
         team memory map
         
         """
         
         l, b = self.blue_memory.shape
-        for blue_agent in self.team_blue:
+        for blue_agent in self._team_blue:
             b_obs = blue_agent.get_obs(env=env)
             leng, breth = b_obs.shape
             leng, breth = leng//2, breth//2
@@ -457,10 +542,10 @@ class CapEnv(gym.Env):
             b_offset_x, b_offset_y = leng - b_coord_x, breth - b_coord_y
             b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]   
             b_coord = b_obs!= const.UNKNOWN
-            self.blue_memory[b_coord] = self.team_home[b_coord]
+            self.blue_memory[b_coord] = self._static_map[b_coord]
              
         l, b = self.red_memory.shape
-        for red_agent in self.team_red:
+        for red_agent in self._team_red:
             r_obs = red_agent.get_obs(env=env)
             leng, breth = r_obs.shape
             leng, breth = leng//2, breth//2
@@ -468,20 +553,17 @@ class CapEnv(gym.Env):
             r_offset_x, r_offset_y = leng - r_coord_x, breth - r_coord_y
             r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]   
             r_coord = r_obs!= const.UNKNOWN
-            self.red_memory[r_coord] = self.team_home[r_coord]
+            self.red_memory[r_coord] = self._static_map[r_coord]
         
         return
 
-    def step(self, entities_action=None, cur_suggestions=None, override_red_action=None):
+    def step(self, entities_action=None, cur_suggestions=None):
         """
-        Takes one step in the cap the flag game
-
-
+        Takes one step in the capture the flag game
 
         :param
             entities_action: contains actions for entity 1-n
             cur_suggestions: suggestions from rl to human
-            override_red_action: actions for red entity 1-n
         :return:
             state    : object
             CapEnv object
@@ -496,105 +578,114 @@ class CapEnv(gym.Env):
 
         if self.CONTROL_ALL:
             assert entities_action is not None, 'Under CONTROL_ALL setting, action must be specified'
-            assert (type(entities_action) is list) or (type(entities_action) is np.ndarray), 'CONTROLL_ALL setting requires list (or numpy array) type of action'
-            assert len(entities_action) == self.NUM_BLUE+self.NUM_RED+self.NUM_UAV+self.NUM_UAV, 'You entered wrong number of moves.'
+            assert (type(entities_action) is list) or (type(entities_action) is np.ndarray), \
+                    'CONTROLL_ALL setting requires list (or numpy array) type of action'
+            assert len(entities_action) == self.NUM_BLUE+self.NUM_RED+self.NUM_UAV+self.NUM_UAV, \
+                    'You entered wrong number of moves.'
 
             move_list_blue = entities_action[:self.NUM_UAV+self.NUM_BLUE]
             move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED:]
         else:
             # Get actions from uploaded policies
             try:
-                move_list_red = self.policy_red.gen_action(self.team_red,self.get_obs_red,free_map=self.team_home)
+                move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
             except Exception as e:
-                print(e)
-                print("No valid policy for red team")
+                print("No valid policy for red team", e)
+                traceback.print_exc()
                 exit()
 
             if entities_action is None:
                 try:
-                    move_list_blue = self.policy_blue.gen_action(self.team_blue,self.get_obs_blue,free_map=self.team_home)
+                    move_list_blue = self._policy_blue.gen_action(self._team_blue, self.get_obs_blue)
                 except Exception as e:
-                    print(e)
-                    print("No valid policy for blue team and no actions provided")
+                    print("No valid policy for blue team and no actions provided", e)
+                    traceback.print_exc()
                     exit()
             elif type(entities_action) is int:
                 if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
-                    sys.exit("ERROR: You entered too many moves. \
-                             There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
                 move_list_blue = []
                 while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
             else:
                 if len(entities_action) > self.NUM_BLUE + self.NUM_UAV:
-                    sys.exit("ERROR: You entered too many moves. \
-                             There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
                 move_list_blue = entities_action
 
 
         # Move team1
+        positions = []
         for idx, act in enumerate(move_list_blue):
-            if self.STOCH_TRANSITIONS and self.np_random.rand() < 0.1:
+            if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
                 act = self.np_random.randint(0,len(self.ACTION))
-            self.team_blue[idx].move(self.ACTION[act], self._env, self.team_home)
+            self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
+            positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
+        self._blue_trajectory.append(positions)
 
         # Move team2
+        positions = []
         for idx, act in enumerate(move_list_red):
-            if self.STOCH_TRANSITIONS and self.np_random.rand() < 0.1:
+            if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
                 act = self.np_random.randint(0,len(self.ACTION))
-            self.team_red[idx].move(self.ACTION[act], self._env, self.team_home)
+            self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
+            positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
+        self._red_trajectory.append(positions)
 
-
-        # Check for dead
-        for entity in self.team_blue + self.team_red:
+        # Run interaction
+        for entity in self._team_blue + self._team_red:
             if entity.air or not entity.isAlive:
                 continue
-            self.interaction(entity)
+            self._interaction(entity)
 
         # Check win and lose conditions
         has_alive_entity = False
-        for i in self.team_red:
+        for i in self._team_red:
             if i.isAlive and not i.air:
                 has_alive_entity = True
                 locx, locy = i.get_loc()
-                if self.team_home[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
+                if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
                     self.red_win = True
-                    self.blue_flag = True
+                    self.blue_flag_captured = True
                     
         # TODO Change last condition for multi agent model
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
             self.blue_win = True
-            self.red_die = True
+            self.red_eliminated = True
 
         has_alive_entity = False
-        for i in self.team_blue:
+        for i in self._team_blue:
             if i.isAlive and not i.air:
                 has_alive_entity = True
                 locx, locy = i.get_loc()
-                if self.team_home[locx][locy] == TEAM2_FLAG:
+                if self._static_map[locx][locy] == TEAM2_FLAG:
                     self.blue_win = True
-                    self.red_flag = True
+                    self.red_flag_captured = True
                     
         if not has_alive_entity:
             self.red_win = True
-            self.blue_die = True
+            self.blue_eliminated = True
 
-        reward = self.create_reward()
+        reward = self._create_reward()
 
-        self.create_observation_space()
+        self._create_observation_space()
 
         isDone = self.red_win or self.blue_win
         
         # Update individual's memory
-        for agent in self.team_blue + self.team_red:
+        for agent in self._team_blue + self._team_red:
             if agent.memory_mode == "fog":
                 agent.update_memory(env=self)
         
         # Update team memory
         if self.TEAM_MEMORY == "fog":
-            self.update_global_memory(env=self)
+            self._update_global_memory(env=self)
 
-        info = {}
+        info = {
+                'blue_trajectory': self._blue_trajectory,
+                'red_trajectory': self._red_trajectory,
+                'static_map': self._static_map
+            }
 
         return self.get_obs_blue, reward, isDone, info
 
@@ -620,17 +711,17 @@ class CapEnv(gym.Env):
     
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
-            self._env_render(self.team_home,
+            self._env_render(self._static_map,
                             [7, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.observation_space_blue,
+            self._env_render(self.get_obs_blue_render,
                             [7+1.49*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.observation_space_red,
+            self._env_render(self.get_obs_red_render,
                             [7+1.49*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self._env,
+            self._env_render(self.get_full_state,
                             [7, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
 
             # ind blue agent memory rendering
-            for num_blue, blue_agent in enumerate(self.team_blue):
+            for num_blue, blue_agent in enumerate(self._team_blue):
                 if num_blue < 2:
                     blue_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if blue_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
@@ -643,7 +734,7 @@ class CapEnv(gym.Env):
                                          [900+(num_blue-2)*SCREEN_H//4, 7+SCREEN_H//4], [SCREEN_H//4-10, SCREEN_H//4-10])
 
             # ind red agent memory rendering
-            for num_red, red_agent in enumerate(self.team_red):
+            for num_red, red_agent in enumerate(self._team_red):
                 if num_red < 2:
                     red_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if red_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
@@ -674,15 +765,15 @@ class CapEnv(gym.Env):
                 
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
             
-            self._env_render(self.team_home,
+            self._env_render(self._static_map,
                             [5, 10], [SCREEN_W//2-10, SCREEN_H//2-10])
-            self._env_render(self.observation_space_blue,
+            self._env_render(self.get_obs_blue_render,
                             [5+SCREEN_W//2, 10], [SCREEN_W//2-10, SCREEN_H//2-10])
-            self._env_render(self.observation_space_red,
+            self._env_render(self.get_obs_red_render,
                             [5+SCREEN_W//2, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
-            self._env_render(self._env,
+            self._env_render(self.get_full_state,
                             [5, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
-            self._agent_render(self._env,
+            self._agent_render(self.get_full_state,
                             [5, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
@@ -717,9 +808,6 @@ class CapEnv(gym.Env):
                         color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
 
     def _agent_render(self, env, rend_loc, rend_size):
-        self._team_blue = self.team_blue # Remove following two lines if V2 is merged
-        self._team_red = self.team_red
-
         tile_w = rend_size[0] / len(env)
         tile_h = rend_size[1] / len(env[0])
 
@@ -771,3 +859,28 @@ class CapEnv(gym.Env):
 class CapEnvGenerate(CapEnv):
     def __init__(self):
         super(CapEnvGenerate, self).__init__(map_size=20)
+
+
+# State space for capture the flag
+class Board(spaces.Space):
+    """A Board in R^3 used for CtF """
+    def __init__(self, shape=None, dtype=np.uint8):
+        assert dtype is not None, 'dtype must be explicitly provided. '
+        self.dtype = np.dtype(dtype)
+
+        if shape is None:
+            self.shape = (20, 20, NUM_CHANNEL)
+        else:
+            assert shape[2] == NUM_CHANNEL
+            self.shape = tuple(shape)
+        super(Board, self).__init__(self.shape, self.dtype)
+
+    def __repr__(self):
+        return "Board" + str(self.shape)
+
+    def sample(self):
+        map_obj = [NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY]
+        state, _, _ = CreateMap.gen_map('map',
+                self.shape[0], rand_zones=False, map_obj=map_obj)
+        return state
+
