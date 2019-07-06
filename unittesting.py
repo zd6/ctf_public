@@ -167,7 +167,7 @@ class TestAgentGetObs(unittest.TestCase):
         env = gym.make(ENV_NAME)
         env.NUM_UAV = 2
         env.COM_AIR = True
-        env.reset(custom_board = 'test_maps/board2.txt')
+        env.reset(custom_board = 'test_maps/comms_board1.txt')
         for entity in env._team_blue+env._team_red:
             loc = 19, 19
             if entity.get_loc() == loc:
