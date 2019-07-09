@@ -170,6 +170,12 @@ class TestAgentGetObs(unittest.TestCase):
         env.reset(custom_board = 'test_maps/comms_board1.txt')
         for entity in env._team_blue+env._team_red:
             loc = 19, 19
+            second_loc = 0, 0
+            if entity.get_loc() == second_loc:
+                obs = entity.get_obs(env)
+                a = np.loadtxt('test_maps/solution_maps/solution4.txt')
+                for ix, iy in np.ndindex(a.shape):
+                    assert (a[ix, iy] == obs[ix, iy])
             if entity.get_loc() == loc:
                 obs = entity.get_obs(env)
                 a = np.loadtxt('test_maps/solution_maps/solution2.txt')
@@ -190,6 +196,13 @@ class TestAgentGetObs(unittest.TestCase):
                 a = np.loadtxt('test_maps/solution_maps/solution1.txt')
                 for ix, iy in np.ndindex(a.shape):
                     assert(a[ix, iy] == obs[ix, iy])
+            second_loc = 1, 1
+            if entity.get_loc() == second_loc:
+                obs = entity.get_obs(env)
+                a = np.loadtxt('test_maps/solution_maps/solution3.txt')
+                for ix, iy in np.ndindex(a.shape):
+                    assert (a[ix, iy] == obs[ix, iy])
+
 
 if __name__ == '__main__':
     unittest.main()
