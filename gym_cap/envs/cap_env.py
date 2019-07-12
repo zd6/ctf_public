@@ -43,8 +43,8 @@ class CapEnv(gym.Env):
         self.seed()
         self.viewer = None
 
-        self.blue_memory = np.empty((map_size, map_size))
-        self.red_memory = np.empty((map_size, map_size))
+        self.blue_memory = np.empty((map_size, map_size), dtype=int)
+        self.red_memory = np.empty((map_size, map_size), dtype=int)
 
         self._parse_config()
 
