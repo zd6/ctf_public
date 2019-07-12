@@ -127,10 +127,23 @@ class TestInteraction(unittest.TestCase):
             if d: break
 
 class TestAgentTeamMemory(unittest.TestCase):
-    pass
+    env = gym.make(ENV_NAME)
+    env.reset(custom_board = 'test_maps/board1.txt')
+    env._update_global_memory(env=env)
+    print(env.blue_memory)
+    print('\n')
+    print(env.red_memory)
 
 class TestAgentIndivMemory(unittest.TestCase):
     pass
+    '''
+    env = gym.make(ENV_NAME)
+    env.reset(custom_board = 'test_maps/board1.txt')
+    for agent in env._team_blue + env._team_red:
+        agent.update_memory(env=env)
+        print(agent.memory)
+        print('\n')
+    '''
 
 class TestAgentGetObs(unittest.TestCase):
 
