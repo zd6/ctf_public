@@ -28,7 +28,7 @@ class Agent:
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.air = False
-        self.memory = np.empty_like(map_only)
+        self.memory = np.empty_like(map_only, dtype=int)
         self.memory_mode = "None"
         #self.ai = EnemyAI(map_only)
         self.team = team_number
@@ -113,7 +113,7 @@ class Agent:
         offset_x, offset_y = leng - loc_x, breth - loc_y
         obs = obs[offset_x: offset_x + l, offset_y: offset_y + b]    
         coord = obs != UNKNOWN
-        self.memory[coord] = env.team_home[coord]
+        self.memory[coord] = env._static_map[coord]
 
         return
     
@@ -166,7 +166,7 @@ class Agent:
 
         a = 39              # env.map_size[0]*2-1
         b = 39              # env.map_size[1]*2-1
-        obs = np.full(shape=(a, b), fill_value=UNKNOWN)
+        obs = np.full(shape=(a, b), fill_value=UNKNOWN, dtype=int)
         val = env.get_full_state
 
         if not self.isAlive:        # if target agent is dead, return all -1
