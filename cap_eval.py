@@ -27,7 +27,7 @@ parser.add_argument('--cores', type=int, help='number of cores (-1 to use all)',
 args = parser.parse_args()
 
 # TODO: Make several other test board for evaluation
-fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,4)] 
+fair_maps = ['test_maps/board{}.txt'.format(i) for i in range(1,5)] 
 
 # initialize the environment
 
@@ -50,6 +50,7 @@ def _roll(n):
     ave_step = []
 
     for iterate in trange(num_episode, ncols=50, position=n):
+    #for iterate in range(num_episode):
         if args.fair_map:
             env.reset(custom_board=random.choice(fair_maps))
         else:
@@ -96,14 +97,22 @@ if args.cores == -1:
 else:
     cores = args.cores
 
-L = list(range(cores))
-with Pool(processes=cores) as p:
-    for i, result in enumerate(p.imap_unordered(_roll, L)):
-        stat_win += result[0]
-        stat_flag += result[1]
-        stat_eliminated += result[2]
-        ave_time.extend(result[3])
-        ave_step.extend(result[4])
+if cores > 1:
+    L = list(range(cores))
+    with Pool(processes=cores) as p:
+        for i, result in enumerate(p.imap_unordered(_roll, L)):
+            stat_win += result[0]
+            stat_flag += result[1]
+            stat_eliminated += result[2]
+            ave_time.extend(result[3])
+            ave_step.extend(result[4])
+else:
+    result = _roll(0)
+    stat_win += result[0]
+    stat_flag += result[1]
+    stat_eliminated += result[2]
+    ave_time.extend(result[3])
+    ave_step.extend(result[4])
 
 stat_win        = np.stack([stat_win, 100*stat_win/sum(stat_win)]).flatten('F')
 stat_flag       = np.stack([stat_flag, 100*stat_flag/sum(stat_flag)]).flatten('F')
