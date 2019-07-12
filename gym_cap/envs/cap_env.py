@@ -527,7 +527,7 @@ class CapEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _update_global_memory(self, env):
+    def _update_global_memory(self):
         """ 
         team memory map
         
@@ -535,7 +535,7 @@ class CapEnv(gym.Env):
         
         l, b = self.blue_memory.shape
         for blue_agent in self._team_blue:
-            b_obs = blue_agent.get_obs(env=env)
+            b_obs = blue_agent.get_obs(env=self)
             leng, breth = b_obs.shape
             leng, breth = leng//2, breth//2
             b_coord_x, b_coord_y = blue_agent.get_loc()
@@ -546,7 +546,7 @@ class CapEnv(gym.Env):
              
         l, b = self.red_memory.shape
         for red_agent in self._team_red:
-            r_obs = red_agent.get_obs(env=env)
+            r_obs = red_agent.get_obs(env=self)
             leng, breth = r_obs.shape
             leng, breth = leng//2, breth//2
             r_coord_x, r_coord_y = red_agent.get_loc()
@@ -679,7 +679,7 @@ class CapEnv(gym.Env):
         
         # Update team memory
         if self.TEAM_MEMORY == "fog":
-            self._update_global_memory(env=self)
+            self._update_global_memory()
 
         info = {
                 'blue_trajectory': self._blue_trajectory,
