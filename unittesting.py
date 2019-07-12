@@ -128,33 +128,42 @@ class TestInteraction(unittest.TestCase):
 
 class TestAgentTeamMemory(unittest.TestCase):
     
-    def testTeamMemory:
-      "Testing Team memory"
-      test_epoch = 5
-      env = gym.make(ENV_NAME)
-      for epoch in range(test_epoch):
-          env.reset(custom_board='test_maps/board1.txt')
-          env._update_global_memory(env)
-          b_map, r_map = env.blue_memory, env.red_memory
-          b_sol, r_sol = np.loadtxt('test_maps/memory_sol/sol_2.txt'), np.loadtxt('test_maps/memory_sol/sol_3.txt')
-          for idx, idy in np.ndindex(b_sol.shape):
-              assert(b_sol[idx, idy] == b_map[idx, idy])
-              assert(r_sol[idx, idy] == r_map[idx, idy])
+    def testTeamMemory(self):
+        "Testing Team memory"
+        test_epoch = 1
+        env = gym.make(ENV_NAME)
+        for epoch in range(test_epoch):
+            env.reset(map_size=20,
+                      policy_blue=policy.Roomba(),
+                      policy_red=policy.Random(),
+                      custom_board='test_maps/board1.txt')
+            env.TEAM_MEMORY = 'fog'
+            env.step()
+            b_map, r_map = env.blue_memory, env.red_memory
+            b_sol, r_sol = np.loadtxt('test_maps/memory_sol/sol_2.txt'), np.loadtxt('test_maps/memory_sol/sol_3.txt')
+            for idx, idy in np.ndindex(b_sol.shape):
+                assert(b_sol[idx, idy] == b_map[idx, idy])
+                assert(r_sol[idx, idy] == r_map[idx, idy])
 
 class TestAgentIndivMemory(unittest.TestCase):
   
-  def testIndivMemory:
-      "Testing Individual memory"
-      test_epoch = 5
-      env = gym.make(ENV_NAME)
-      for epoch in range(test_epoch):        
-          env.reset(custom_board='test_maps/board1.txt')
-          for agent in env._team_blue + env._team_red:
-              agent.update_memory(env)
-              t_map = agent.memory
-              sol = np.loadtxt('test_maps/memory_sol/sol_1.txt')
-              for idx, idy in np.ndindex(t_map.shape):
-                  assert(sol[idx, idy] == t_map[idx, idy])
+    def testIndivMemory(self):
+        "Testing Individual memory"
+        test_epoch = 1
+        env = gym.make(ENV_NAME)
+        for epoch in range(test_epoch):        
+            env.reset(map_size=20,
+                      policy_blue=policy.Roomba(),
+                      policy_red=policy.Random(),
+                      custom_board='test_maps/board1.txt')
+            for agent in env._team_blue + env._team_red:
+                agent.memory_mode = 'fog'
+            env.step()
+            for agent in env._team_blue + env._team_red:
+                t_map = agent.memory
+                sol = np.loadtxt('test_maps/memory_sol/sol_1.txt')
+                for idx, idy in np.ndindex(t_map.shape):
+                    assert(sol[idx, idy] == t_map[idx, idy])
 
 class TestAgentGetObs(unittest.TestCase):
 
