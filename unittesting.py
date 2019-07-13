@@ -133,11 +133,13 @@ class TestAgentTeamMemory(unittest.TestCase):
         "Testing Team memory"
         env = gym.make(ENV_NAME)
         env.TEAM_MEMORY = 'fog'
+        env.CONTROL_ALL = True
         env.reset(map_size=20,
                   policy_blue=policy.Zeros(),
                   policy_red=policy.Zeros(),
                   custom_board='test_maps/board1.txt')
-        env.step()
+        for i in range(10):
+            env.step(entities_action=[4,1,2,1,1,3,4,1])
         b_map = env.blue_memory
         b_sol = np.loadtxt('test_maps/memory_sol/sol_3.txt', dtype=int)
         for idx, idy in np.ndindex(b_sol.shape):
@@ -148,11 +150,13 @@ class TestAgentTeamMemory(unittest.TestCase):
         "Testing Team memory"
         env = gym.make(ENV_NAME)
         env.TEAM_MEMORY = 'fog'
+        env.CONTROL_ALL = True
         env.reset(map_size=20,
                   policy_blue=policy.Zeros(),
                   policy_red=policy.Zeros(),
                   custom_board='test_maps/board1.txt')
-        env.step()
+        for j in range(10):
+            env.step(entities_action=[4,1,2,1,1,3,4,1])
         r_map = env.red_memory
         r_sol = np.loadtxt('test_maps/memory_sol/sol_4.txt', dtype=int)
         for idx, idy in np.ndindex(r_sol.shape):
@@ -165,11 +169,13 @@ class TestAgentIndivMemory(unittest.TestCase):
         "Testing Individual memory"
         env = gym.make(ENV_NAME)
         env.INDIV_MEMORY = 'fog'
+        env.CONTROL_ALL = True
         env.reset(map_size=20,
                   policy_blue=policy.Zeros(),
                   policy_red=policy.Zeros(),
                   custom_board='test_maps/board1.txt')
-        env.step()
+        for i in range(10):
+            env.step(entities_action=[4,1,2,1,1,3,4,1])
         b_agent = env._team_blue[0]
         b_map = b_agent.memory
         b_sol = np.loadtxt('test_maps/memory_sol/sol_1.txt', dtype=int)
@@ -181,11 +187,13 @@ class TestAgentIndivMemory(unittest.TestCase):
         "Testing Individual memory"
         env = gym.make(ENV_NAME)
         env.INDIV_MEMORY = 'fog'
+        env.CONTROL_ALL = True
         env.reset(map_size=20,
                   policy_blue=policy.Zeros(),
                   policy_red=policy.Zeros(),
                   custom_board='test_maps/board1.txt')
-        env.step()
+        for j in range(10):
+            env.step(entities_action=[4,1,2,1,1,3,4,1])
         r_agent = env._team_red[0]
         r_map = r_agent.memory
         r_sol = np.loadtxt('test_maps/memory_sol/sol_2.txt', dtype=int)
