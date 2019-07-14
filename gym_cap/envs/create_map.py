@@ -148,11 +148,11 @@ class CreateMap:
                     
         # build static map
         static_map = np.copy(new_map)
-        static_map[static_map==TEAM1_UGV] = TEAM1_BACKGROUND
-        static_map[static_map==TEAM1_UAV] = TEAM1_BACKGROUND
-        static_map[static_map==TEAM2_UGV] = TEAM2_BACKGROUND
-        static_map[static_map==TEAM2_UAV] = TEAM2_BACKGROUND
-        static_map[static_map==TEAM3_UGV] = TEAM1_BACKGROUND # subject to change
+        static_map[new_map==TEAM1_UGV] = TEAM1_BACKGROUND
+        static_map[new_map==TEAM1_UAV] = TEAM1_BACKGROUND
+        static_map[new_map==TEAM2_UGV] = TEAM2_BACKGROUND
+        static_map[new_map==TEAM2_UAV] = TEAM2_BACKGROUND
+        static_map[new_map==TEAM3_UGV] = TEAM1_BACKGROUND # subject to change
         
         # build 3D new_map
         l, b = new_map.shape
