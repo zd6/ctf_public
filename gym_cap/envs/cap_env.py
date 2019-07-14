@@ -353,6 +353,21 @@ class CapEnv(gym.Env):
         return board
 
     @property
+    def get_full_state_channel(self):
+        return np.copy(self._env)
+
+    @property
+    def get_full_state_rgb(self):
+        # input: [num_agent, width, height, channel]
+        w, h, ch = self._env.shape
+        image = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
+        for element in CHANNEL.keys():
+            channel = CHANNEL[element]
+            color = REPRESENT[element]
+            image[self._env[:,:,channel]==color] = np.array(COLOR_DICT[element])
+        return image
+
+    @property
     def get_team_blue(self):
         return np.copy(self._team_blue)
 
@@ -769,6 +784,8 @@ class CapEnv(gym.Env):
                             [5, 10], [SCREEN_W//2-10, SCREEN_H//2-10])
             self._env_render(self.get_obs_blue_render,
                             [5+SCREEN_W//2, 10], [SCREEN_W//2-10, SCREEN_H//2-10])
+            self._agent_render(self.get_full_state,
+                            [5+SCREEN_W//2, 10], [SCREEN_W//2-10, SCREEN_H//2-10], self._team_blue)
             self._env_render(self.get_obs_red_render,
                             [5+SCREEN_W//2, 10+SCREEN_H//2], [SCREEN_W//2-10, SCREEN_H//2-10])
             self._env_render(self.get_full_state,
@@ -807,11 +824,13 @@ class CapEnv(gym.Env):
                         (locx, locy + tile_h)],
                         color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
 
-    def _agent_render(self, env, rend_loc, rend_size):
+    def _agent_render(self, env, rend_loc, rend_size, agents=None):
+        if agents is None:
+            agents = self._team_blue + self._team_red
         tile_w = rend_size[0] / len(env)
         tile_h = rend_size[1] / len(env[0])
 
-        for entity in self._team_blue+self._team_red:
+        for entity in agents:
             if not entity.isAlive: continue
             x,y = entity.get_loc()
             locx, locy = rend_loc
