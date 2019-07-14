@@ -170,6 +170,11 @@ class CreateMap:
         agent_locs[TEAM2_UGV] = np.argwhere(new_map==TEAM2_UGV)
         agent_locs[TEAM2_UAV] = np.argwhere(new_map==TEAM2_UAV)
         
+#         nd_map[agent_locs[TEAM1_UGV], CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
+#         nd_map[agent_locs[TEAM2_UGV], CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
+#         nd_map[agent_locs[TEAM1_UAV], CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
+#         nd_map[agent_locs[TEAM2_UAV], CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
+        
         return nd_map, static_map, obj_arr, agent_locs
 
     @staticmethod
