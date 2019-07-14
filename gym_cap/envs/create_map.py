@@ -145,14 +145,21 @@ class CreateMap:
         uav_2 = element_count.get(TEAM2_UAV, 0)
         gray = element_count.get(TEAM3_UGV, 0)
         obj_arr = [ugv_1, uav_1, ugv_2, uav_2, gray]
-                    
+
+        # Find locations
+        team1_ugv_loc = new_map==TEAM1_UGV
+        team1_uav_loc = new_map==TEAM1_UAV
+        team2_ugv_loc = new_map==TEAM2_UGV
+        team2_uav_loc = new_map==TEAM2_UAV
+        team3_ugv_loc = new_map==TEAM3_UGV
+
         # build static map
         static_map = np.copy(new_map)
-        static_map[new_map==TEAM1_UGV] = TEAM1_BACKGROUND
-        static_map[new_map==TEAM1_UAV] = TEAM1_BACKGROUND
-        static_map[new_map==TEAM2_UGV] = TEAM2_BACKGROUND
-        static_map[new_map==TEAM2_UAV] = TEAM2_BACKGROUND
-        static_map[new_map==TEAM3_UGV] = TEAM1_BACKGROUND # subject to change
+        static_map[team1_ugv_loc] = TEAM1_BACKGROUND
+        static_map[team1_uav_loc] = TEAM1_BACKGROUND
+        static_map[team2_ugv_loc] = TEAM2_BACKGROUND
+        static_map[team2_uav_loc] = TEAM2_BACKGROUND
+        static_map[team3_ugv_loc] = TEAM1_BACKGROUND # subject to change
         
         # build 3D new_map
         l, b = new_map.shape
@@ -165,15 +172,15 @@ class CreateMap:
         
         # location of agents
         agent_locs = {}
-        agent_locs[TEAM1_UGV] = np.argwhere(new_map==TEAM1_UGV)
-        agent_locs[TEAM1_UAV] = np.argwhere(new_map==TEAM1_UAV)
-        agent_locs[TEAM2_UGV] = np.argwhere(new_map==TEAM2_UGV)
-        agent_locs[TEAM2_UAV] = np.argwhere(new_map==TEAM2_UAV)
+        agent_locs[TEAM1_UGV] = np.argwhere(team1_ugv_loc)
+        agent_locs[TEAM1_UAV] = np.argwhere(team1_uav_loc)
+        agent_locs[TEAM2_UGV] = np.argwhere(team2_ugv_loc)
+        agent_locs[TEAM2_UAV] = np.argwhere(team2_uav_loc)
         
-        nd_map[agent_locs[TEAM1_UGV], CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
-        nd_map[agent_locs[TEAM2_UGV], CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
-        nd_map[agent_locs[TEAM1_UAV], CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
-        nd_map[agent_locs[TEAM2_UAV], CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
+        nd_map[team1_ugv_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
+        nd_map[team1_uav_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
+        nd_map[team2_ugv_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
+        nd_map[team2_uav_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
         
         return nd_map, static_map, obj_arr, agent_locs
 
