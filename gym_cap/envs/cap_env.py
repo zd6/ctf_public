@@ -121,8 +121,8 @@ class CapEnv(gym.Env):
 
 
         # WARNINGS
-        if config_path is not None and custom_board is not None:
-            print('Custom configuration path is specified, but the custom board is given. Some configuration will be ignored.')
+        #if config_path is not None and custom_board is not None:
+        #    print('Custom configuration path is specified, but the custom board is given. Some configuration will be ignored.')
 
         # STORE ARGUMENTS
         self.mode = mode
