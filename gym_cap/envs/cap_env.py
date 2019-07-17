@@ -385,12 +385,19 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue(self):
-        return np.copy(self.observation_space_blue)
+        blue_view = np.copy(self.observation_space_blue)
+
+        mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+        blue_view[mask, :] = 0
+
+        return blue_view
 
     @property
     def get_obs_red(self):
-        target = self.observation_space_red
-        red_view = np.copy(target)
+        red_view = np.copy(self.observation_space_red)
+
+        mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+        red_view[mask, :] = 0
 
         # Change red's perspective same as blue
         swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
