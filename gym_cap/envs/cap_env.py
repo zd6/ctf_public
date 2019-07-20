@@ -107,7 +107,8 @@ class CapEnv(gym.Env):
             print(e)
             raise Exception('Configuration import fails: recheck whether all config variables are included')
 
-    def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None, custom_board=None, config_path=None):
+    def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
+            custom_board=None, config_path=None):
         """
         Resets the game
 
@@ -118,7 +119,6 @@ class CapEnv(gym.Env):
         """
 
         # ASSERTIONS
-
 
         # WARNINGS
         #if config_path is not None and custom_board is not None:
@@ -142,7 +142,10 @@ class CapEnv(gym.Env):
         # INITIALIZE MAP
         if custom_board is not None:
             # Reset using pre-written custom board
-            custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
+            if type(custom_board) is str:
+                custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
+            elif type(custom_board) is np.ndarray:
+                custom_map = custom_board
 
             self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
             self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
