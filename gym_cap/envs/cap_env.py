@@ -9,6 +9,7 @@ except ImportError:
 import random
 import sys
 import traceback
+from hashlib import sha1
 
 import gym
 from gym import spaces
@@ -72,7 +73,7 @@ class CapEnv(gym.Env):
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
                 'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS',
-                        'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
+                        'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL','RGB_MODE']
             }
         config_datatype = {
                 'elements': [int, int, int ,int],
@@ -80,7 +81,7 @@ class CapEnv(gym.Env):
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float,
-                        bool, int, bool, bool, bool]
+                        bool, int, bool, bool, bool, str]
             }
 
         if config_path is None:
@@ -390,24 +391,63 @@ class CapEnv(gym.Env):
     def get_obs_blue(self):
         blue_view = np.copy(self.observation_space_blue)
 
-        mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        blue_view[mask, :] = 0
+        if self.RGB_MODE == "channel":
+            # channel mode
+            mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+            blue_view[mask, :] = 0
+
+        elif self.RGB_MODE == "rgb":
+            # RGB mode
+            blue_map = np.copy(self.observation_space_blue)
+            mask = blue_map[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+            blue_map[mask, :] = 0
+            w, h, ch = blue_map.shape
+            blue_view = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
+            for element in CHANNEL.keys():
+                channel = CHANNEL[element]
+                color = REPRESENT[element]
+                blue_view[blue_map[:,:,channel]==color] = np.array(COLOR_DICT[element])
+        
+        elif self.RGB_MODE == "flat":
+            # flat mode
+            blue_view = self.get_obs_blue_render
 
         return blue_view
 
     @property
     def get_obs_red(self):
         red_view = np.copy(self.observation_space_red)
-
-        mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        red_view[mask, :] = 0
-
-        # Change red's perspective same as blue
-        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
-
-        for ch in swap:
-            red_view[:,:,ch] *= -1
-
+        
+        if self.RGB_MODE == "channel":
+            # channel mode
+            mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+            red_view[mask, :] = 0
+            
+            # Change red's perspective same as blue
+            swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
+            for ch in swap:
+                red_view[:,:,ch] *= -1    
+                
+        elif self.RGB_MODE == "rgb":
+            # RGB mode
+            red_map = np.copy(self.observation_space_red)
+            mask = red_map[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+            red_map[mask, :] = 0
+            # Change red's perspective same as blue
+            swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
+            for ch in swap:
+                red_map[:,:,ch] *= -1  
+            w, h, ch = red_map.shape
+            red_view = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
+            for element in CHANNEL.keys():
+                channel = CHANNEL[element]
+                color = REPRESENT[element]
+                red_view[red_map[:,:,channel]==color] = np.array(COLOR_DICT[element])
+        
+        elif self.RGB_MODE == "flat":
+            # flat mode
+            red_view = self.get_obs_red_render
+            
         return red_view
 
     @property
@@ -823,7 +863,6 @@ class CapEnv(gym.Env):
                     (locx + tile_w, locy),
                     (locx + tile_w, locy + tile_h),
                     (locx, locy + tile_h)], color=cur_color)
-
                 if env[x][y] == TEAM1_UAV or env[x][y] == TEAM2_UAV:
                     self.viewer.draw_polyline([
                         (locx, locy),
