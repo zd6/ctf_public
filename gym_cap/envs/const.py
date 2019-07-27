@@ -23,6 +23,7 @@ STOCH_ATTACK_BIAS = 1
 STOCH_ZONES = False
 RED_PARTIAL = True
 BLUE_PARTIAL = True
+RGB_MODE = "channel"
 
 # Communication Default Setting
 COM_GROUND = False
