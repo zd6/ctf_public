@@ -657,6 +657,18 @@ class CapEnv(gym.Env):
             positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
         self._red_trajectory.append(positions)
 
+        self._create_observation_space()
+        
+        # Update individual's memory
+        for agent in self._team_blue + self._team_red:
+            if agent.memory_mode == "fog":
+                agent.update_memory(env=self)
+        
+        # Update team memory
+        if self.TEAM_MEMORY == "fog":
+            self._update_global_memory(env=self)
+
+
         # Run interaction
         for entity in self._team_blue + self._team_red:
             if entity.air or not entity.isAlive:
@@ -693,18 +705,7 @@ class CapEnv(gym.Env):
 
         reward = self._create_reward()
 
-        self._create_observation_space()
-
         isDone = self.red_win or self.blue_win
-        
-        # Update individual's memory
-        for agent in self._team_blue + self._team_red:
-            if agent.memory_mode == "fog":
-                agent.update_memory(env=self)
-        
-        # Update team memory
-        if self.TEAM_MEMORY == "fog":
-            self._update_global_memory(env=self)
 
         info = {
                 'blue_trajectory': self._blue_trajectory,

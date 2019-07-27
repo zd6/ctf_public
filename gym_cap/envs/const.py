@@ -104,7 +104,7 @@ CHANNEL = {
 # Represented constant
 REPRESENT = {
         UNKNOWN: 1,
-        DEAD: -1,
+        DEAD: 0,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: -1,
         TEAM1_FLAG: 1,
