@@ -113,7 +113,7 @@ class Agent:
         offset_x, offset_y = leng - loc_x, breth - loc_y
         obs = obs[offset_x: offset_x + l, offset_y: offset_y + b]    
         coord = obs != UNKNOWN
-        self.memory[coord] = env.team_home[coord]
+        self.memory[coord] = env._static_map[coord]
 
         return
     
