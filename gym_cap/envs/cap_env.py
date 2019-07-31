@@ -62,10 +62,29 @@ class CapEnv(gym.Env):
                 config_path=kwargs.get('config_path', None),
             )
 
+    def seed(self, seed=None):
+        """
+        todo docs still
+
+        Parameters
+        ----------
+        self    : object
+            CapEnv object
+        """
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
     def _parse_config(self, config_path=None):
-        # Set configuration constants
-        # If config path is specified, read the file
-        # Default values are set in const.py file
+        """
+        Parse Configuration
+
+        If configuration file is explicitly provided, any given settings overide the default parameters.
+        Default parameters can be found in const.py module
+
+        To add additional configuration parameter, make sure to add the default value in const.py
+
+        The parameter is accessible as class variable.
+        """
 
         config_param = { # Configurable parameters
                 'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY'],
@@ -133,12 +152,6 @@ class CapEnv(gym.Env):
             self._parse_config(config_path)
         if map_size is None:
             map_size = self.map_size[0]
-
-        # SET INTERACTION
-        if self.STOCH_ATTACK:
-            self._interaction = self._interaction_stoch
-        else:
-            self._interaction = self._interaction_determ
 
         # INITIALIZE MAP
         if custom_board is None:  # Random Generated Map
@@ -245,50 +258,6 @@ class CapEnv(gym.Env):
 
         return team_blue, team_red
 
-    def _create_reward(self, mode='dense'):
-        """
-        Range (-100, 100)
-
-        Parameters
-        ----------
-        self    : object
-            CapEnv object
-        """
-
-        assert mode in ['dense', 'flag', 'combat', 'defense', 'capture']
-
-        if mode == 'dense':
-            # Dead enemy team gives .5/total units for each dead unit
-            if self.blue_win:
-                return 100
-            if self.red_win:
-                return -100
-            reward = 0
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
-            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.air])
-            reward += 50.0 * red_alive / TEAM2_UGV
-            reward -= 50.0 * blue_alive / TEAM1_UGV
-            return reward
-        elif mode == 'flag':
-            # Flag game reward
-            if self.red_flag_captured:
-                return 100
-            if self.blue_flag_captured:
-                return -100
-        elif mode == 'combat':
-            # Aggressive combat game. Elliminate enemy to win
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
-            return 100 * red_alive / TEAM2_UGV
-        elif mode == 'defense':
-            # Lose reward if flag is lost.
-            if self.blue_flag_captured:
-                return -100
-        elif mode == 'capture':
-            # Reward only by capturing (sparse)
-            if self.red_flag_captured:
-                return 100
-
-
     def _create_observation_space(self):
         """
         Creates the observation space in self.observation_space
@@ -340,249 +309,6 @@ class CapEnv(gym.Env):
         # TODO need to be added observation for grey team
         # self.observation_space_grey = np.full_like(self._env, -1)
 
-    @property
-    def get_full_state(self):
-        # Return 2D representation of the state
-        board = np.copy(self._static_map)
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
-            if entities.team == TEAM1_BACKGROUND and entities.air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
-                board[loc] = TEAM2_UGV
-        return board
-
-    @property
-    def get_full_state_channel(self):
-        return np.copy(self._env)
-
-    @property
-    def get_full_state_rgb(self):
-        # input: [num_agent, width, height, channel]
-        w, h, ch = self._env.shape
-        image = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
-        for element in CHANNEL.keys():
-            channel = CHANNEL[element]
-            color = REPRESENT[element]
-            image[self._env[:,:,channel]==color] = np.array(COLOR_DICT[element])
-        return image
-
-    @property
-    def get_team_blue(self):
-        return np.copy(self._team_blue)
-
-    @property
-    def get_team_red(self):
-        return np.copy(self._team_red)
-
-    @property
-    def get_team_grey(self):
-        return np.copy(self.team_grey)
-
-    @property
-    def get_map(self):
-        return np.copy(self._static_map)
-
-    @property
-    def get_obs_blue(self):
-        blue_view = np.copy(self.observation_space_blue)
-
-        mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        blue_view[mask, :] = 0
-
-        return blue_view
-
-    @property
-    def get_obs_red(self):
-        red_view = np.copy(self.observation_space_red)
-
-        mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        red_view[mask, :] = 0
-
-        # Change red's perspective same as blue
-        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
-
-        for ch in swap:
-            red_view[:,:,ch] *= -1
-
-        return red_view
-
-    @property
-    def get_obs_blue_render(self):
-        board = np.copy(self._static_map)
-        fog = self.observation_space_blue[:,:,CHANNEL[UNKNOWN]]
-        fog_rep = REPRESENT[UNKNOWN]
-        board[fog==fog_rep] = UNKNOWN
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
-            if fog[loc] == fog_rep: continue
-            if entities.team == TEAM1_BACKGROUND and entities.air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
-                board[loc] = TEAM2_UGV
-        return board
-
-    @property
-    def get_obs_red_render(self):
-        board = np.copy(self._static_map)
-        fog = self.observation_space_red[:,:,CHANNEL[UNKNOWN]]
-        fog_rep = REPRESENT[UNKNOWN]
-        board[fog==fog_rep] = UNKNOWN
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
-            if fog[loc] == fog_rep: continue
-            if entities.team == TEAM1_BACKGROUND and entities.air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
-                board[loc] = TEAM2_UGV
-        return board
-
-    @property
-    def get_obs_grey(self):
-        return np.copy(self.observation_space_grey)
-
-    def _interaction_determ(self, entity):
-        """
-        Checks if a unit is dead
-
-        Parameters
-        ----------
-        self    : object
-            CapEnv object
-        entity_num  : int
-            Represents where in the unit list is the unit to move
-        team    : int
-            Represents which team the unit belongs to
-        """
-
-        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-        loc = np.array(entity.get_loc())
-        if self._static_map[tuple(loc)] == entity.team:
-            return
-
-        enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
-
-        for enemy in enemy_list:
-            if enemy.air: continue
-            if not enemy.isAlive: continue
-            att_range = enemy.a_range
-            enemy_loc = np.array(enemy.get_loc())
-
-            if in_range(*(loc-enemy_loc), att_range):
-                # If enemy is within attack range, declare dead
-                entity.isAlive = False
-                self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-                break
-        
-
-    def _interaction_stoch(self, entity):
-        """
-        Checks if a unit is dead
-
-        Parameters
-        ----------
-        self    : object
-            CapEnv object
-        entity_num  : int
-            Represents where in the unit list is the unit to move
-        team    : int
-            Represents which team the unit belongs to
-        """
-
-        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-        loc = np.array(entity.get_loc())
-
-        enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
-        friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
-
-        n_enemies = 0
-        for enemy in enemy_list:
-            if enemy.air: continue
-            if not enemy.isAlive: continue
-            att_range = enemy.a_range
-            enemy_loc = np.array(enemy.get_loc())
-
-            if in_range(*(loc-enemy_loc), att_range):
-                n_enemies += 1
-
-        n_friends = 0
-        for friend in friend_list:
-            if friend.air: continue
-            if not friend.isAlive: continue
-            att_range = friend.a_range
-            friend_loc = np.array(friend.get_loc())
-
-            if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
-                n_friends += 1
-
-        if n_enemies > 0: # Interaction 
-            # Advantage bias for being in team territory
-            if entity.team == self._static_map[entity.get_loc()]:
-                n_friends += self.STOCH_ATTACK_BIAS
-            else:
-                n_enemies += self.STOCH_ATTACK_BIAS
-            if self.np_random.rand() > n_friends/(n_friends + n_enemies):
-                entity.isAlive = False
-                self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-
-    def seed(self, seed=None):
-        """
-        todo docs still
-
-        Parameters
-        ----------
-        self    : object
-            CapEnv object
-        """
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def _update_global_memory(self, env):
-        """ 
-        team memory map
-        
-        """
-        
-        l, b = self.blue_memory.shape
-        for blue_agent in self._team_blue:
-            b_obs = blue_agent.get_obs(env=env)
-            leng, breth = b_obs.shape
-            leng, breth = leng//2, breth//2
-            b_coord_x, b_coord_y = blue_agent.get_loc()
-            b_offset_x, b_offset_y = leng - b_coord_x, breth - b_coord_y
-            b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]   
-            b_coord = b_obs!= const.UNKNOWN
-            self.blue_memory[b_coord] = self._static_map[b_coord]
-             
-        l, b = self.red_memory.shape
-        for red_agent in self._team_red:
-            r_obs = red_agent.get_obs(env=env)
-            leng, breth = r_obs.shape
-            leng, breth = leng//2, breth//2
-            r_coord_x, r_coord_y = red_agent.get_loc()
-            r_offset_x, r_offset_y = leng - r_coord_x, breth - r_coord_y
-            r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]   
-            r_coord = r_obs!= const.UNKNOWN
-            self.red_memory[r_coord] = self._static_map[r_coord]
-        
-        return
 
     def step(self, entities_action=None, cur_suggestions=None):
         """
@@ -718,6 +444,157 @@ class CapEnv(gym.Env):
         self.run_step += 1
         
         return self.get_obs_blue, reward, isDone, info
+
+    def _interaction(self, entity):
+        """
+        Interaction 
+
+        Checks if a unit is dead
+        If configuration parameter 'STOCH_ATTACK' is true, the interaction becomes stochastic
+
+        Parameters
+        ----------
+        self    : object
+            CapEnv object
+        entity_num  : int
+            Represents where in the unit list is the unit to move
+        team    : int
+            Represents which team the unit belongs to
+        """
+        if self.STOCH_ATTACK:
+            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+
+            loc = np.array(entity.get_loc())
+
+            enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
+            friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
+
+            n_enemies = 0
+            for enemy in enemy_list:
+                if enemy.air: continue
+                if not enemy.isAlive: continue
+                att_range = enemy.a_range
+                enemy_loc = np.array(enemy.get_loc())
+
+                if in_range(*(loc-enemy_loc), att_range):
+                    n_enemies += 1
+
+            n_friends = 0
+            for friend in friend_list:
+                if friend.air: continue
+                if not friend.isAlive: continue
+                att_range = friend.a_range
+                friend_loc = np.array(friend.get_loc())
+
+                if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
+                    n_friends += 1
+
+            if n_enemies > 0: # Interaction 
+                # Advantage bias for being in team territory
+                if entity.team == self._static_map[entity.get_loc()]:
+                    n_friends += self.STOCH_ATTACK_BIAS
+                else:
+                    n_enemies += self.STOCH_ATTACK_BIAS
+                if self.np_random.rand() > n_friends/(n_friends + n_enemies):
+                    entity.isAlive = False
+                    self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
+
+        else:
+
+            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+
+            loc = np.array(entity.get_loc())
+            if self._static_map[tuple(loc)] == entity.team:
+                return
+
+            enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
+
+            for enemy in enemy_list:
+                if enemy.air: continue
+                if not enemy.isAlive: continue
+                att_range = enemy.a_range
+                enemy_loc = np.array(enemy.get_loc())
+
+                if in_range(*(loc-enemy_loc), att_range):
+                    # If enemy is within attack range, declare dead
+                    entity.isAlive = False
+                    self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
+                    break
+
+
+    def _update_global_memory(self, env):
+        """ 
+        team memory map
+        
+        """
+        
+        l, b = self.blue_memory.shape
+        for blue_agent in self._team_blue:
+            b_obs = blue_agent.get_obs(env=env)
+            leng, breth = b_obs.shape
+            leng, breth = leng//2, breth//2
+            b_coord_x, b_coord_y = blue_agent.get_loc()
+            b_offset_x, b_offset_y = leng - b_coord_x, breth - b_coord_y
+            b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]   
+            b_coord = b_obs!= const.UNKNOWN
+            self.blue_memory[b_coord] = self._static_map[b_coord]
+             
+        l, b = self.red_memory.shape
+        for red_agent in self._team_red:
+            r_obs = red_agent.get_obs(env=env)
+            leng, breth = r_obs.shape
+            leng, breth = leng//2, breth//2
+            r_coord_x, r_coord_y = red_agent.get_loc()
+            r_offset_x, r_offset_y = leng - r_coord_x, breth - r_coord_y
+            r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]   
+            r_coord = r_obs!= const.UNKNOWN
+            self.red_memory[r_coord] = self._static_map[r_coord]
+        
+        return
+
+    def _create_reward(self, mode='dense'):
+        """
+        Range (-100, 100)
+
+        Parameters
+        ----------
+        self    : object
+            CapEnv object
+        """
+
+        assert mode in ['dense', 'flag', 'combat', 'defense', 'capture']
+
+        if mode == 'dense':
+            # Dead enemy team gives .5/total units for each dead unit
+            if self.blue_win:
+                return 100
+            if self.red_win:
+                return -100
+            reward = 0
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
+            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.air])
+            reward += 50.0 * red_alive / TEAM2_UGV
+            reward -= 50.0 * blue_alive / TEAM1_UGV
+            return reward
+        elif mode == 'flag':
+            # Flag game reward
+            if self.red_flag_captured:
+                return 100
+            if self.blue_flag_captured:
+                return -100
+        elif mode == 'combat':
+            # Aggressive combat game. Elliminate enemy to win
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
+            return 100 * red_alive / TEAM2_UGV
+        elif mode == 'defense':
+            # Lose reward if flag is lost.
+            if self.blue_flag_captured:
+                return -100
+        elif mode == 'capture':
+            # Reward only by capturing (sparse)
+            if self.red_flag_captured:
+                return 100
+
 
     def render(self, mode='human'):
         """
@@ -880,6 +757,122 @@ class CapEnv(gym.Env):
 
     def close(self):
         if self.viewer: self.viewer.close()
+
+    @property
+    def get_full_state(self):
+        # Return 2D representation of the state
+        board = np.copy(self._static_map)
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
+
+    @property
+    def get_full_state_channel(self):
+        return np.copy(self._env)
+
+    @property
+    def get_full_state_rgb(self):
+        # input: [num_agent, width, height, channel]
+        w, h, ch = self._env.shape
+        image = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
+        for element in CHANNEL.keys():
+            channel = CHANNEL[element]
+            color = REPRESENT[element]
+            image[self._env[:,:,channel]==color] = np.array(COLOR_DICT[element])
+        return image
+
+    @property
+    def get_team_blue(self):
+        return np.copy(self._team_blue)
+
+    @property
+    def get_team_red(self):
+        return np.copy(self._team_red)
+
+    @property
+    def get_team_grey(self):
+        return np.copy(self.team_grey)
+
+    @property
+    def get_map(self):
+        return np.copy(self._static_map)
+
+    @property
+    def get_obs_blue(self):
+        blue_view = np.copy(self.observation_space_blue)
+
+        mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+        blue_view[mask, :] = 0
+
+        return blue_view
+
+    @property
+    def get_obs_red(self):
+        red_view = np.copy(self.observation_space_red)
+
+        mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
+        red_view[mask, :] = 0
+
+        # Change red's perspective same as blue
+        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
+
+        for ch in swap:
+            red_view[:,:,ch] *= -1
+
+        return red_view
+
+    @property
+    def get_obs_blue_render(self):
+        board = np.copy(self._static_map)
+        fog = self.observation_space_blue[:,:,CHANNEL[UNKNOWN]]
+        fog_rep = REPRESENT[UNKNOWN]
+        board[fog==fog_rep] = UNKNOWN
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if fog[loc] == fog_rep: continue
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
+
+    @property
+    def get_obs_red_render(self):
+        board = np.copy(self._static_map)
+        fog = self.observation_space_red[:,:,CHANNEL[UNKNOWN]]
+        fog_rep = REPRESENT[UNKNOWN]
+        board[fog==fog_rep] = UNKNOWN
+        for entities in self._team_blue+self._team_red:
+            if not entities.isAlive: continue
+            loc = entities.get_loc()
+            if fog[loc] == fog_rep: continue
+            if entities.team == TEAM1_BACKGROUND and entities.air:
+                board[loc] = TEAM1_UAV
+            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+                board[loc] = TEAM1_UGV
+            elif entities.team == TEAM2_BACKGROUND and entities.air:
+                board[loc] = TEAM2_UAV
+            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+                board[loc] = TEAM2_UGV
+        return board
+
+    @property
+    def get_obs_grey(self):
+        return np.copy(self.observation_space_grey)
 
 
     # def quit_game(self):
