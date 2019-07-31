@@ -55,7 +55,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
     # CH 0 : UNKNOWN
     mask = np.zeros([dim, dim], dtype=int)
 
-    # CH 1 : ZONE and OBSTACLE
+    # CH 1 : ZONE and OBSTACLE (included in static)
     zone = np.ones([dim, dim], dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
     static_map = np.zeros([dim, dim], dtype=int)
     if rand_zones:
@@ -78,30 +78,26 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
         zone[lx-sx:lx+sx, ly-sy:ly+sy] = 0
         static_map[lx-sx:lx+sx, ly-sy:ly+sy] = OBSTACLE
 
-    if dim < 20:
-        element_count = dict(zip(*np.unique(zone, return_counts=True)))
-        blue_capacity = element_count[1]
-        red_capacity = element_count[-1]
-        if blue_capacity < total_blue:
-            raise Exception('Cannot fit all blue object in an given map.')
-        if red_capacity < total_red:
-            raise Exception('Cannot fit all red object in an given map.')
+    # CH 2 : FLAG (included in static)
+    try: # Take possible coordinates for all elements
+        blue_pool = np.argwhere(zone== 1)
+        blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
+        blue_coord = np.take(blue_pool, blue_indices, axis=0)
 
-    # CH 2 : FLAG
-    blue_pool = np.argwhere(zone== 1)
-    blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
-    blue_coord = np.take(blue_pool, blue_indices, axis=0)
+        red_pool = np.argwhere(zone==-1)
+        red_indices = np_random.choice(len(red_pool), total_red, replace=False)
+        red_coord = np.take(red_pool, red_indices, axis=0)
+    except ValueError as e:
+        msg = "This error occurs when the map is too small to allocate all elements."
+        raise ValueError(msg) from e
 
-    red_pool = np.argwhere(zone==-1)
-    red_indices = np_random.choice(len(red_pool), total_red, replace=False)
-    red_coord = np.take(red_pool, red_indices, axis=0)
-
-    num_flag = 1  # Parameter for later change
+    num_flag = 1  # Parameter in case we want more than 1 flag
     flag = np.zeros([dim, dim], dtype=int)
 
     blue_flag_coord, blue_coord = blue_coord[:num_flag], blue_coord[num_flag:]
     flag[blue_flag_coord[:,0], blue_flag_coord[:,1]] = 1
     static_map[blue_flag_coord[:,0], blue_flag_coord[:,1]] = TEAM1_FLAG
+
     red_flag_coord, red_coord = red_coord[:num_flag], red_coord[num_flag:]
     flag[red_flag_coord[:,0], red_flag_coord[:,1]] = -1
     static_map[red_flag_coord[:,0], red_flag_coord[:,1]] = TEAM2_FLAG
@@ -112,6 +108,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
 
     blue_ugv_coord, blue_coord = blue_coord[:map_obj[0]], blue_coord[map_obj[0]:]
     ugv[blue_ugv_coord[:,0], blue_ugv_coord[:,1]] = 1
+
     red_ugv_coord, red_coord = red_coord[:map_obj[2]], red_coord[map_obj[2]:]
     ugv[red_ugv_coord[:,0], red_ugv_coord[:,1]] = -1
 
