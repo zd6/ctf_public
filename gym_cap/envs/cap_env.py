@@ -42,11 +42,10 @@ class CapEnv(gym.Env):
         """
         self.seed()
         self.viewer = None
+        self._parse_config()
 
         self.blue_memory = np.empty((map_size, map_size))
         self.red_memory = np.empty((map_size, map_size))
-
-        self._parse_config()
 
         self._policy_blue = None
         self._policy_red = None
@@ -54,7 +53,9 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self.reset(map_size, mode=mode,
+        self.reset(
+                map_size,
+                mode=mode,
                 policy_blue=kwargs.get('policy_blue', None),
                 policy_red=kwargs.get('policy_red', None),
                 custom_board=kwargs.get('custom_board', None),
@@ -140,19 +141,18 @@ class CapEnv(gym.Env):
             self._interaction = self._interaction_determ
 
         # INITIALIZE MAP
-        if custom_board is not None:
-            # Reset using pre-written custom board
-            if type(custom_board) is str:
-                custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            elif type(custom_board) is np.ndarray:
-                custom_map = custom_board
-
-            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
-        else:
+        if custom_board is None:  # Random Generated Map
             map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY]
             self._env, self._static_map, agent_locs = CreateMap.gen_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
+        elif type(custom_board) is str:
+            custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
+            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
+        elif type(custom_board) is np.ndarray:
+            custom_map = custom_board
+            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
 
         self.map_size = tuple(self._static_map.shape)
         self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1]))
@@ -208,6 +208,8 @@ class CapEnv(gym.Env):
 
         # Necessary for human mode
         self.first = True
+
+        self.run_step = 0  # Number of step of current episode
 
         return self.get_obs_blue
 
@@ -713,6 +715,8 @@ class CapEnv(gym.Env):
                 'static_map': self._static_map
             }
 
+        self.run_step += 1
+        
         return self.get_obs_blue, reward, isDone, info
 
     def render(self, mode='human'):

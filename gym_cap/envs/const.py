@@ -36,8 +36,9 @@ TEAM_MEMORY = None       # ['None', 'fog', 'Full']
 RENDER_INDIV_MEMORY = False
 RENDER_TEAM_MEMORY = False
 
-# Control Setting
+# Control Setting (Experiment)
 CONTROL_ALL = False  # If true, step(action) controls both red and blue
+NP_SEED = None
 
 # MapConst
 """ Defining the constants for map and environment """
@@ -86,6 +87,7 @@ COLOR_DICT = {UNKNOWN : (200, 200, 200),
               BLACK : (0, 0, 0),
               SUGGESTION : (50, 50, 50),
               COMPLETED : (100, 0, 0)}
+
 NUM_CHANNEL = 6
 CHANNEL = {
        UNKNOWN: 0,
