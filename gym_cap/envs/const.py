@@ -40,20 +40,6 @@ RENDER_TEAM_MEMORY = False
 CONTROL_ALL = False  # If true, step(action) controls both red and blue
 NP_SEED = None
 
-# MapConst
-""" Defining the constants for map and environment """
-# WORLD_H = 100
-# WORLD_W = 100
-# RED_ZONE = 15
-# RED_AGENT = 20
-# RED_FLAG = 10
-# BLUE_ZONE = 55
-# BLUE_AGENT = 60
-# BLUE_FLAG = 50
-# GRAY_AGENT = 95
-# #OBSTACLE = 100
-# AERIAL_DENIAL = 90
-
 SUGGESTION = -5
 BLACK = -2
 UNKNOWN = -1
@@ -94,27 +80,29 @@ CHANNEL = {
        DEAD: 0,
        TEAM1_BACKGROUND: 1,
        TEAM2_BACKGROUND: 1,
+       OBSTACLE: 1,
        TEAM1_FLAG: 2,
        TEAM2_FLAG: 2,
-       OBSTACLE: 3,
-       TEAM1_UGV: 4,
-       TEAM2_UGV: 4,
-       TEAM1_UAV: 5,
-       TEAM2_UAV: 5
+       TEAM1_UGV: 3,
+       TEAM2_UGV: 3,
+       TEAM1_UAV: 4,
+       TEAM2_UAV: 4,
+       TEAM3_UGV: 5,
    }
 
 # Represented constant
 REPRESENT = {
         UNKNOWN: 1,
         DEAD: 0,
+        OBSTACLE: 0,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: -1,
         TEAM1_FLAG: 1,
         TEAM2_FLAG: -1,
-        OBSTACLE: 1,
         TEAM1_UGV: 1,
         TEAM2_UGV: -1,
         TEAM1_UAV: 1,
-        TEAM2_UAV: -1
+        TEAM2_UAV: -1,
+        TEAM3_UGV: 1
     }
 

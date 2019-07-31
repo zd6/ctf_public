@@ -16,7 +16,7 @@ from gym.utils import seeding
 import numpy as np
 
 from .agent import *
-from .create_map import CreateMap
+from .create_map import gen_random_map, custom_map
 from gym_cap.envs import const
 
 """
@@ -129,20 +129,25 @@ class CapEnv(gym.Env):
 
     def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
             custom_board=None, config_path=None):
-        """
+        """ 
         Resets the game
 
-        :param map_size: Size of the map
-        :param mode: Action generation mode
-        :return: void
+        Parameters
+        ----------------
+
+        map_size : [int] 
+        mode : [str] 
+        policy_blue : [policy] 
+        policy_red : [policy] 
+        custom_board : [str, numpy.ndarray] 
+        config_path : [str] 
 
         """
 
         # ASSERTIONS
+        assert map_size is None or type(map_size) is int
 
         # WARNINGS
-        #if config_path is not None and custom_board is not None:
-        #    print('Custom configuration path is specified, but the custom board is given. Some configuration will be ignored.')
 
         # STORE ARGUMENTS
         self.mode = mode
@@ -156,15 +161,15 @@ class CapEnv(gym.Env):
         # INITIALIZE MAP
         if custom_board is None:  # Random Generated Map
             map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY]
-            self._env, self._static_map, agent_locs = CreateMap.gen_map('map',
+            self._env, self._static_map, agent_locs = gen_random_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
         elif type(custom_board) is str:
-            custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            map_matrix = np.loadtxt(custom_board, dtype = int, delimiter = " ")
+            self._env, self._static_map, map_obj, agent_locs = custom_map(map_matrix)
             self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
         elif type(custom_board) is np.ndarray:
-            custom_map = custom_board
-            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            map_matrix = custom_board
+            self._env, self._static_map, map_obj, agent_locs = custom_map(map_matrix)
             self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
 
         self.map_size = tuple(self._static_map.shape)
@@ -907,7 +912,7 @@ class Board(spaces.Space):
 
     def sample(self):
         map_obj = [NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY]
-        state, _, _ = CreateMap.gen_map('map',
+        state, _, _ = gen_random_map('map',
                 self.shape[0], rand_zones=False, map_obj=map_obj)
         return state
 
