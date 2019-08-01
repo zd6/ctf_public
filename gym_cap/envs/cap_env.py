@@ -160,11 +160,11 @@ class CapEnv(gym.Env):
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
         elif type(custom_board) is str:
             custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
             self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
         elif type(custom_board) is np.ndarray:
             custom_map = custom_board
-            self._env, self._static_map, map_obj, agent_locs = createmap.set_custom_map(custom_map)
+            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
             self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
 
         self.map_size = tuple(self._static_map.shape)
