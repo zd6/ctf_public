@@ -181,19 +181,15 @@ class CapEnv(gym.Env):
         # INITIALIZE TEAM
         self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
 
-        # INITIALIZE POLICY
+        # INITIATE POLICY
         if policy_blue is not None:
-            try:
-                self._policy_blue = policy_blue
-            except Exception as e:
-                print("Blue policy does not have Policy_gen object", e)
-                raise
+            self._policy_blue = policy_blue
         if policy_red is not None:
-            try:
-                self._policy_red = policy_red
-            except Exception as e:
-                print("Red policy does not have Policy_gen object", e)
-                raise
+            self._policy_red = policy_red
+        if self._policy_blue is not None:
+            self._policy_blue.initiate(self._static_map, self._team_blue)
+        if self._policy_red is not None:
+            self._policy_red.initiate(self._static_map, self._team_red)
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
@@ -205,13 +201,7 @@ class CapEnv(gym.Env):
                 agent.memory[:] = const.UNKNOWN
                 agent.memory_mode = "fog"
 
-        # INITIATE POLICY
-        if self._policy_blue is not None:
-            self._policy_blue.initiate(self._static_map, self._team_blue)
-        if self._policy_red is not None:
-            self._policy_red.initiate(self._static_map, self._team_red)
-
-        # INITIALIZE TRAJECTORY
+        # INITIALIZE TRAJECTORY (DEBUG)
         self._blue_trajectory = []
         self._red_trajectory = []
 
@@ -466,11 +456,9 @@ class CapEnv(gym.Env):
         team    : int
             Represents which team the unit belongs to
         """
+        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+        loc = np.array(entity.get_loc())
         if self.STOCH_ATTACK:
-            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-            loc = np.array(entity.get_loc())
-
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
             friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
 
@@ -505,13 +493,8 @@ class CapEnv(gym.Env):
                     self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
 
         else:
-
-            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-            loc = np.array(entity.get_loc())
             if self._static_map[tuple(loc)] == entity.team:
                 return
-
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
 
             for enemy in enemy_list:
