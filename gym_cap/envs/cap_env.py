@@ -210,7 +210,7 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self._create_observation_space()
+        self._create_observation_mask()
 
         self.blue_win = False
         self.red_win = False
@@ -258,9 +258,12 @@ class CapEnv(gym.Env):
 
         return team_blue, team_red
 
-    def _create_observation_space(self):
+    def _create_observation_mask(self):
         """
-        Creates the observation space in self.observation_space
+        Creates the mask 
+
+        Mask is True(1) for the location where it CANNOT see.
+        For full observation setting, mask is zero matrix
 
         Parameters
         ----------
@@ -269,41 +272,34 @@ class CapEnv(gym.Env):
         team    : int
             Team to create obs space for
         """
-        in_bound = lambda x, y: (0<=x) and (x<self.map_size[0]) and (0<=y) and (y<self.map_size[0])
-        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-        
-        unknown_ch = CHANNEL[UNKNOWN]
-        unknown_repr = REPRESENT[UNKNOWN] 
+
+        def create_vision_mask(centers, radii):
+            h, w = self._static_map.shape
+            mask = np.zeros([h,w], dtype=bool)
+            Y, X = np.ogrid[:h, :w]
+            for center, radius in zip(centers, radii):
+                mask += np.sqrt((X - center[1])**2 + (Y-center[0])**2) <= radius
+            return ~mask
 
         if self.BLUE_PARTIAL:
-            self.observation_space_blue = np.copy(self._env)
-            self.observation_space_blue[:,:,unknown_ch] = unknown_repr
+            centers, radii = [], []
             for agent in self._team_blue:
-                if not agent.isAlive:
-                    continue
-                loc = agent.get_loc()
-                for i in range(-agent.range, agent.range + 1):
-                    for j in range(-agent.range, agent.range + 1):
-                        locx, locy = i + loc[0], j + loc[1]
-                        if in_range(i,j,agent.range) and in_bound(locx, locy):
-                            self.observation_space_blue[locx][locy][unknown_ch] = 0
+                if not agent.isAlive: continue
+                centers.append(agent.get_loc())
+                radii.append(agent.range)
+            self._blue_mask = create_vision_mask(centers, radii)
         else:
-            self.observation_space_blue = self._env
+            self._blue_mask = np.zeros_like(self._static_map, dtype=bool)
 
         if self.RED_PARTIAL:
-            self.observation_space_red = np.copy(self._env)
-            self.observation_space_red[:,:,unknown_ch] = unknown_repr
+            centers, radii = [], []
             for agent in self._team_red:
-                if not agent.isAlive:
-                    continue
-                loc = agent.get_loc()
-                for i in range(-agent.range, agent.range + 1):
-                    for j in range(-agent.range, agent.range + 1):
-                        locx, locy = i + loc[0], j + loc[1]
-                        if in_range(i,j,agent.range) and in_bound(locx, locy):
-                            self.observation_space_red[locx][locy][unknown_ch] = 0
+                if not agent.isAlive: continue
+                centers.append(agent.get_loc())
+                radii.append(agent.range)
+            self._red_mask = create_vision_mask(centers, radii)
         else:
-            self.observation_space_red = self._env
+            self._red_mask = np.zeros_like(self._static_map, dtype=bool)
 
 
         # TODO need to be added observation for grey team
@@ -385,7 +381,7 @@ class CapEnv(gym.Env):
             positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
         self._red_trajectory.append(positions)
 
-        self._create_observation_space()
+        self._create_observation_mask()
         
         # Update individual's memory
         for agent in self._team_blue + self._team_red:
@@ -758,13 +754,15 @@ class CapEnv(gym.Env):
     def close(self):
         if self.viewer: self.viewer.close()
 
-    @property
-    def get_full_state(self):
+    def _env_flat(self, mask=None):
         # Return 2D representation of the state
         board = np.copy(self._static_map)
+        if mask is not None:
+            board[mask] = UNKNOWN
         for entities in self._team_blue+self._team_red:
             if not entities.isAlive: continue
             loc = entities.get_loc()
+            if mask is not None and mask[loc]: continue
             if entities.team == TEAM1_BACKGROUND and entities.air:
                 board[loc] = TEAM1_UAV
             elif entities.team == TEAM1_BACKGROUND and not entities.air:
@@ -776,18 +774,21 @@ class CapEnv(gym.Env):
         return board
 
     @property
+    def get_full_state(self, mask=None):
+        return self._env_flat()
+
+    @property
     def get_full_state_channel(self):
         return np.copy(self._env)
 
     @property
     def get_full_state_rgb(self):
-        # input: [num_agent, width, height, channel]
         w, h, ch = self._env.shape
         image = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
         for element in CHANNEL.keys():
             channel = CHANNEL[element]
-            color = REPRESENT[element]
-            image[self._env[:,:,channel]==color] = np.array(COLOR_DICT[element])
+            rep = REPRESENT[element]
+            image[self._env[:,:,channel]==rep] = np.array(COLOR_DICT[element])
         return image
 
     @property
@@ -808,19 +809,27 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue(self):
-        blue_view = np.copy(self.observation_space_blue)
+        blue_view = np.copy(self._env)
 
-        mask = blue_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        blue_view[mask, :] = 0
+        if self.BLUE_PARTIAL:
+            mask_channel = CHANNEL[UNKNOWN]
+            mask_represent = REPRESENT[UNKNOWN]
+
+            blue_view[self._blue_mask, :] = 0
+            blue_view[self._blue_mask, mask_channel] = mask_represent
 
         return blue_view
 
     @property
     def get_obs_red(self):
-        red_view = np.copy(self.observation_space_red)
+        red_view = np.copy(self._env)
 
-        mask = red_view[:,:,CHANNEL[UNKNOWN]] == REPRESENT[UNKNOWN]
-        red_view[mask, :] = 0
+        if self.RED_PARTIAL:
+            mask_represent = REPRESENT[UNKNOWN]
+            mask_channel = CHANNEL[UNKNOWN]
+
+            red_view[self._red_mask, :] = 0
+            red_view[self._red_mask, mask_channel] = mask_represent
 
         # Change red's perspective same as blue
         swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]]
@@ -832,43 +841,11 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue_render(self):
-        board = np.copy(self._static_map)
-        fog = self.observation_space_blue[:,:,CHANNEL[UNKNOWN]]
-        fog_rep = REPRESENT[UNKNOWN]
-        board[fog==fog_rep] = UNKNOWN
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
-            if fog[loc] == fog_rep: continue
-            if entities.team == TEAM1_BACKGROUND and entities.air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
-                board[loc] = TEAM2_UGV
-        return board
+        return self._env_flat(self._blue_mask)
 
     @property
     def get_obs_red_render(self):
-        board = np.copy(self._static_map)
-        fog = self.observation_space_red[:,:,CHANNEL[UNKNOWN]]
-        fog_rep = REPRESENT[UNKNOWN]
-        board[fog==fog_rep] = UNKNOWN
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
-            if fog[loc] == fog_rep: continue
-            if entities.team == TEAM1_BACKGROUND and entities.air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
-                board[loc] = TEAM2_UGV
-        return board
+        return self._env_flat(self._red_mask)
 
     @property
     def get_obs_grey(self):
