@@ -336,13 +336,16 @@ class CapEnv(gym.Env):
             move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED:]
         else:
             # Get actions from uploaded policies
-            try:
-                move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
-            except Exception as e:
-                print("No valid policy for red team", e)
-                traceback.print_exc()
-                exit()
+            move_list_red = []
+            if self.mode != "sandbox":
+                try:
+                    move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
+                except Exception as e:
+                    print("No valid policy for red team", e)
+                    traceback.print_exc()
+                    exit()
 
+            move_list_blue = []
             if entities_action is None:
                 try:
                     move_list_blue = self._policy_blue.gen_action(self._team_blue, self.get_obs_blue)
@@ -353,7 +356,6 @@ class CapEnv(gym.Env):
             elif type(entities_action) is int:
                 if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
                     sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
-                move_list_blue = []
                 while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
@@ -427,10 +429,12 @@ class CapEnv(gym.Env):
             self.red_win = True
             self.blue_eliminated = True
 
+        # Calculate Reward
         reward = self._create_reward()
 
         isDone = self.red_win or self.blue_win
 
+        # Pass internal info
         info = {
                 'blue_trajectory': self._blue_trajectory,
                 'red_trajectory': self._red_trajectory,
