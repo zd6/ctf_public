@@ -161,11 +161,11 @@ class CapEnv(gym.Env):
         elif type(custom_board) is str:
             custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
             self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
+            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
         elif type(custom_board) is np.ndarray:
             custom_map = custom_board
             self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.num_blue, self.num_uav, self.num_red, self.num_uav, self.num_gray = map_obj
+            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
 
         self.map_size = tuple(self._static_map.shape)
         self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1]))
@@ -603,14 +603,15 @@ class CapEnv(gym.Env):
         mode    : string
             Defines what will be rendered
         """
+        if self.viewer is None:
+            from gym.envs.classic_control import rendering
+            self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
+            self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
+
         if (self.RENDER_INDIV_MEMORY == True and self.INDIV_MEMORY == "fog") or (self.RENDER_TEAM_MEMORY == True and self.TEAM_MEMORY == "fog"):
             SCREEN_W = 1200
             SCREEN_H = 600
 
-            if self.viewer is None:
-                from gym.envs.classic_control import rendering
-                self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
-                self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
     
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
@@ -660,11 +661,6 @@ class CapEnv(gym.Env):
         else:
             SCREEN_W = 600
             SCREEN_H = 600
-            
-            if self.viewer is None:
-                from gym.envs.classic_control import rendering
-                self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
-                self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
                 
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
             
