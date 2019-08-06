@@ -15,8 +15,8 @@ UAV_A_RANGE = 0
 UGV_A_RANGE = 2
 
 """ Advanced Units (Experiment) """
-NUM_BLUE_UGV2 = 2
-NUM_RED_UGV2 = 2
+NUM_BLUE_UGV2 = 0
+NUM_RED_UGV2 = 0
 UGV2_STEP = 1
 UGV2_DELAY = 2
 UGV2_RANGE = 3
