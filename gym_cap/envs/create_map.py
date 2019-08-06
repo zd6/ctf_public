@@ -9,7 +9,7 @@ class CreateMap:
 
     @staticmethod
     def gen_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
-                map_obj=[NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY]):
+                map_obj=[NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY, NUM_BLUE_UGV2, NUM_RED_UGV2]):
         """
         Method
 
@@ -38,10 +38,6 @@ class CreateMap:
 
         # ASSERTION
         assert map_obj is not None
-        assert channel[TEAM1_BACKGROUND] == channel[TEAM2_BACKGROUND]
-        assert channel[TEAM1_UGV] == channel[TEAM2_UGV]
-        assert channel[TEAM1_UAV] == channel[TEAM2_UAV]
-        assert channel[TEAM1_FLAG] == channel[TEAM2_FLAG]
 
         # init the seed and set new_map to zeros
         if np_random == None:
@@ -93,10 +89,14 @@ class CreateMap:
                 repr_const[TEAM1_UGV], channel[TEAM1_UGV], map_obj[0])
         agent_locs[TEAM1_UAV] = CreateMap.populate_map(new_map, team1_pool,
                 repr_const[TEAM1_UAV], channel[TEAM1_UAV], map_obj[1])
+        agent_locs[TEAM1_UGV2] = CreateMap.populate_map(new_map, team1_pool,
+                repr_const[TEAM1_UGV2], channel[TEAM1_UGV2], map_obj[5])
         agent_locs[TEAM2_UGV] = CreateMap.populate_map(new_map, team2_pool,
                 repr_const[TEAM2_UGV], channel[TEAM2_UGV], map_obj[2])
         agent_locs[TEAM2_UAV] = CreateMap.populate_map(new_map, team2_pool,
                 repr_const[TEAM2_UAV], channel[TEAM2_UAV], map_obj[3])
+        agent_locs[TEAM2_UGV2] = CreateMap.populate_map(new_map, team2_pool,
+                repr_const[TEAM2_UGV2], channel[TEAM2_UGV2], map_obj[6])
 
         # TODO: change zone for grey team to complete map
         #new_map = CreateMap.populate_map(new_map,
@@ -141,23 +141,29 @@ class CreateMap:
         element_count = dict(zip(*np.unique(new_map, return_counts=True)))
         ugv_1 = element_count.get(TEAM1_UGV, 0)
         ugv_2 = element_count.get(TEAM2_UGV, 0)
+        ugv2_1 = element_count.get(TEAM1_UGV2, 0)
+        ugv2_2 = element_count.get(TEAM2_UGV2, 0)
         uav_1 = element_count.get(TEAM1_UAV, 0)
         uav_2 = element_count.get(TEAM2_UAV, 0)
         gray = element_count.get(TEAM3_UGV, 0)
-        obj_arr = [ugv_1, uav_1, ugv_2, uav_2, gray]
+        obj_arr = [ugv_1, uav_1, ugv_2, uav_2, gray, ugv2_1, ugv2_2]
 
         # Find locations
         team1_ugv_loc = new_map==TEAM1_UGV
+        team1_ugv2_loc = new_map==TEAM1_UGV2
         team1_uav_loc = new_map==TEAM1_UAV
         team2_ugv_loc = new_map==TEAM2_UGV
+        team2_ugv2_loc = new_map==TEAM2_UGV2
         team2_uav_loc = new_map==TEAM2_UAV
         team3_ugv_loc = new_map==TEAM3_UGV
 
         # build static map
         static_map = np.copy(new_map)
         static_map[team1_ugv_loc] = TEAM1_BACKGROUND
+        static_map[team1_ugv2_loc] = TEAM1_BACKGROUND
         static_map[team1_uav_loc] = TEAM1_BACKGROUND
         static_map[team2_ugv_loc] = TEAM2_BACKGROUND
+        static_map[team2_ugv2_loc] = TEAM2_BACKGROUND
         static_map[team2_uav_loc] = TEAM2_BACKGROUND
         static_map[team3_ugv_loc] = TEAM1_BACKGROUND # subject to change
         
@@ -173,13 +179,17 @@ class CreateMap:
         # location of agents
         agent_locs = {}
         agent_locs[TEAM1_UGV] = np.argwhere(team1_ugv_loc)
+        agent_locs[TEAM1_UGV2] = np.argwhere(team1_ugv2_loc)
         agent_locs[TEAM1_UAV] = np.argwhere(team1_uav_loc)
         agent_locs[TEAM2_UGV] = np.argwhere(team2_ugv_loc)
+        agent_locs[TEAM2_UGV2] = np.argwhere(team2_ugv2_loc)
         agent_locs[TEAM2_UAV] = np.argwhere(team2_uav_loc)
         
         nd_map[team1_ugv_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
+        nd_map[team1_ugv2_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
         nd_map[team1_uav_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
         nd_map[team2_ugv_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
+        nd_map[team2_ugv2_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
         nd_map[team2_uav_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
         
         return nd_map, static_map, obj_arr, agent_locs

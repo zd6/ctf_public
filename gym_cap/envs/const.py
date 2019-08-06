@@ -14,11 +14,21 @@ UGV_RANGE = 3
 UAV_A_RANGE = 0
 UGV_A_RANGE = 2
 
+""" Advanced Units (Experiment) """
+NUM_BLUE_UGV2 = 2
+NUM_RED_UGV2 = 2
+UGV2_STEP = 1
+UGV2_DELAY = 2
+UGV2_RANGE = 3
+UGV2_A_RANGE = 2
+UGV2_ADVANTAGE = 2
+UGV2_ADVANTAGE_WHILE_MOVING = 0
+
 # Game Default Setting
 RL_SUGGESTIONS = False
 STOCH_TRANSITIONS = False
 STOCH_TRANSITIONS_EPS = 0.1
-STOCH_ATTACK = False
+STOCH_ATTACK = True
 STOCH_ATTACK_BIAS = 1
 STOCH_ZONES = False
 RED_PARTIAL = True
@@ -71,36 +81,45 @@ SELECTED = 10
 COMPLETED = 11
 TEAM3_UGV = 15
 
-COLOR_DICT = {UNKNOWN : (200, 200, 200),
-              TEAM1_BACKGROUND : (0, 0, 120),
-              TEAM2_BACKGROUND : (120, 0, 0),
-              TEAM1_UGV : (0, 0, 255),
-              TEAM1_UAV : (0, 0, 255),
-              TEAM2_UGV : (255, 0, 0),
-              TEAM2_UAV :  (255, 0, 0),
-              TEAM1_FLAG : (0, 255, 255),
-              TEAM2_FLAG : (255, 255, 0),
-              OBSTACLE : (120, 120, 120),
-              TEAM3_UGV : (180, 180, 180),
-              DEAD : (0, 0, 0),
-              SELECTED : (122, 77, 25),
-              BLACK : (0, 0, 0),
-              SUGGESTION : (50, 50, 50),
-              COMPLETED : (100, 0, 0)}
+TEAM1_UGV2 = 16
+TEAM2_UGV2 = 17
 
-NUM_CHANNEL = 6
+COLOR_DICT = {
+        UNKNOWN : (200, 200, 200),
+        TEAM1_BACKGROUND : (0, 0, 120),
+        TEAM2_BACKGROUND : (120, 0, 0),
+        TEAM1_UGV : (0, 0, 255),
+        TEAM1_UAV : (0, 0, 255),
+        TEAM2_UGV : (255, 0, 0),
+        TEAM2_UAV :  (255, 0, 0),
+        TEAM1_FLAG : (0, 255, 255),
+        TEAM2_FLAG : (255, 255, 0),
+        OBSTACLE : (120, 120, 120),
+        TEAM3_UGV : (180, 180, 180),
+        DEAD : (0, 0, 0),
+        SELECTED : (122, 77, 25),
+        BLACK : (0, 0, 0),
+        SUGGESTION : (50, 50, 50),
+        COMPLETED : (100, 0, 0),
+        TEAM1_UGV2 : (0,0,240),
+        TEAM2_UGV2 : (240,0,0),
+    }
+
+NUM_CHANNEL = 7
 CHANNEL = {
-       UNKNOWN: 0,
-       DEAD: 0,
-       TEAM1_BACKGROUND: 1,
-       TEAM2_BACKGROUND: 1,
-       TEAM1_FLAG: 2,
-       TEAM2_FLAG: 2,
-       OBSTACLE: 3,
-       TEAM1_UGV: 4,
-       TEAM2_UGV: 4,
-       TEAM1_UAV: 5,
-       TEAM2_UAV: 5
+        UNKNOWN: 0,
+        DEAD: 0,
+        TEAM1_BACKGROUND: 1,
+        TEAM2_BACKGROUND: 1,
+        TEAM1_FLAG: 2,
+        TEAM2_FLAG: 2,
+        OBSTACLE: 3,
+        TEAM1_UGV: 4,
+        TEAM2_UGV: 4,
+        TEAM1_UAV: 5,
+        TEAM2_UAV: 5,
+        TEAM1_UGV2: 6,
+        TEAM2_UGV2: 6,
    }
 
 # Represented constant
@@ -115,6 +134,14 @@ REPRESENT = {
         TEAM1_UGV: 1,
         TEAM2_UGV: -1,
         TEAM1_UAV: 1,
-        TEAM2_UAV: -1
+        TEAM2_UAV: -1,
+        TEAM1_UGV2: 1,
+        TEAM2_UGV2: -1,
+    }
+
+# Interaction Level
+LEVEL_GROUP = {
+        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2],
+        'air'   : [TEAM1_UAV, TEAM2_UAV]
     }
 

@@ -87,7 +87,7 @@ class CapEnv(gym.Env):
         """
 
         config_param = { # Configurable parameters
-                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY'],
+                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY', 'NUM_BLUE_UGV2', 'NUM_RED_UGV2'],
                 'control': ['CONTROL_ALL'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
@@ -95,7 +95,7 @@ class CapEnv(gym.Env):
                         'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
             }
         config_datatype = {
-                'elements': [int, int, int ,int],
+                'elements': [int, int, int ,int, int, int],
                 'control': [bool],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
@@ -155,20 +155,21 @@ class CapEnv(gym.Env):
 
         # INITIALIZE MAP
         if custom_board is None:  # Random Generated Map
-            map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY]
+            map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY,
+                    self.NUM_BLUE_UGV2, self.NUM_RED_UGV2]
             self._env, self._static_map, agent_locs = CreateMap.gen_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
         elif type(custom_board) is str:
             custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
             self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
+            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY, self.NUM_BLUE_UGV2, self.NUM_RED_UGV2 = map_obj
         elif type(custom_board) is np.ndarray:
             custom_map = custom_board
             self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY = map_obj
+            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY, self.NUM_BLUE_UGV2, self.NUM_RED_UGV2 = map_obj
 
         self.map_size = tuple(self._static_map.shape)
-        self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1]))
+        self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1] + map_obj[5]))
         self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
         if map_obj[2] == 0:
             self.mode = "sandbox"
@@ -244,16 +245,22 @@ class CapEnv(gym.Env):
             if coords is None: continue
             for coord in coords:
                 if element == TEAM1_UGV:
-                    cur_ent = GroundVehicle(coord, static_map, TEAM1_BACKGROUND)
+                    cur_ent = GroundVehicle(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV)
+                    team_blue.append(cur_ent)
+                elif element == TEAM1_UGV2:
+                    cur_ent = GroundVehicle_Tank(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV2)
                     team_blue.append(cur_ent)
                 elif element == TEAM1_UAV:
-                    cur_ent = AerialVehicle(coord, static_map, TEAM1_BACKGROUND)
+                    cur_ent = AerialVehicle(coord, static_map, TEAM1_BACKGROUND, TEAM1_UAV)
                     team_blue.insert(0, cur_ent)
                 elif element == TEAM2_UGV:
-                    cur_ent = GroundVehicle(coord, static_map, TEAM2_BACKGROUND)
+                    cur_ent = GroundVehicle(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV)
+                    team_red.append(cur_ent)
+                elif element == TEAM2_UGV2:
+                    cur_ent = GroundVehicle_Tank(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV2)
                     team_red.append(cur_ent)
                 elif element == TEAM2_UAV:
-                    cur_ent = AerialVehicle(coord, static_map, TEAM2_BACKGROUND)
+                    cur_ent = AerialVehicle(coord, static_map, TEAM2_BACKGROUND, TEAM2_UAV)
                     team_red.insert(0, cur_ent)
 
         return team_blue, team_red
@@ -332,8 +339,8 @@ class CapEnv(gym.Env):
             assert len(entities_action) == self.NUM_BLUE+self.NUM_RED+self.NUM_UAV+self.NUM_UAV, \
                     'You entered wrong number of moves.'
 
-            move_list_blue = entities_action[:self.NUM_UAV+self.NUM_BLUE]
-            move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED:]
+            move_list_blue = entities_action[:self.NUM_UAV+self.NUM_BLUE+self.NUM_BLUE_UGV2]
+            move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED-self.NUM_RED_UGV2:]
         else:
             # Get actions from uploaded policies
             move_list_red = []
@@ -354,14 +361,14 @@ class CapEnv(gym.Env):
                     traceback.print_exc()
                     exit()
             elif type(entities_action) is int:
-                if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV):
-                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
-                while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV):
+                if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2):
+                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2) + " entities.")
+                while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
             else:
-                if len(entities_action) != self.NUM_BLUE + self.NUM_UAV:
-                    sys.exit("ERROR: You entered wrong number of moves. There are " + str(self.NUM_BLUE + self.NUM_UAV) + " entities.")
+                if len(entities_action) != self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2:
+                    sys.exit("ERROR: You entered wrong number of moves. There are " + str(self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2) + " entities.")
                 move_list_blue = entities_action
 
 
@@ -397,14 +404,14 @@ class CapEnv(gym.Env):
 
         # Run interaction
         for entity in self._team_blue + self._team_red:
-            if entity.air or not entity.isAlive:
+            if entity.is_air or not entity.isAlive:
                 continue
             self._interaction(entity)
 
         # Check win and lose conditions
         has_alive_entity = False
         for i in self._team_red:
-            if i.isAlive and not i.air:
+            if i.isAlive and not i.is_air:
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
@@ -418,7 +425,7 @@ class CapEnv(gym.Env):
 
         has_alive_entity = False
         for i in self._team_blue:
-            if i.isAlive and not i.air:
+            if i.isAlive and not i.is_air:
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM2_FLAG:
@@ -471,36 +478,37 @@ class CapEnv(gym.Env):
 
             n_enemies = 0
             for enemy in enemy_list:
-                if enemy.air: continue
+                if enemy.is_air: continue
                 if not enemy.isAlive: continue
                 att_range = enemy.a_range
                 enemy_loc = np.array(enemy.get_loc())
 
                 if in_range(*(loc-enemy_loc), att_range):
-                    n_enemies += 1
+                    n_enemies += enemy.get_advantage
 
             n_friends = 0
             for friend in friend_list:
-                if friend.air: continue
+                if friend.is_air: continue
                 if not friend.isAlive: continue
                 att_range = friend.a_range
                 friend_loc = np.array(friend.get_loc())
 
                 if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
-                    n_friends += 1
+                    n_friends += friend.get_advantage
 
-            if n_enemies > 0: # Interaction 
+            # Interaction 
+            if n_enemies > 0:
                 # Advantage bias for being in team territory
                 if entity.team == self._static_map[entity.get_loc()]:
                     n_friends += self.STOCH_ATTACK_BIAS
                 else:
                     n_enemies += self.STOCH_ATTACK_BIAS
+
                 if self.np_random.rand() > n_friends/(n_friends + n_enemies):
                     entity.isAlive = False
-                    self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
+                    #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
 
         else:
-
             in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
 
             loc = np.array(entity.get_loc())
@@ -510,7 +518,7 @@ class CapEnv(gym.Env):
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
 
             for enemy in enemy_list:
-                if enemy.air: continue
+                if enemy.is_air: continue
                 if not enemy.isAlive: continue
                 att_range = enemy.a_range
                 enemy_loc = np.array(enemy.get_loc())
@@ -518,7 +526,7 @@ class CapEnv(gym.Env):
                 if in_range(*(loc-enemy_loc), att_range):
                     # If enemy is within attack range, declare dead
                     entity.isAlive = False
-                    self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
+                    #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
                     break
 
 
@@ -571,8 +579,8 @@ class CapEnv(gym.Env):
             if self.red_win:
                 return -100
             reward = 0
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
-            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.air])
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
+            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
             reward += 50.0 * red_alive / TEAM2_UGV
             reward -= 50.0 * blue_alive / TEAM1_UGV
             return reward
@@ -584,7 +592,7 @@ class CapEnv(gym.Env):
                 return -100
         elif mode == 'combat':
             # Aggressive combat game. Elliminate enemy to win
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.air])
+            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
             return 100 * red_alive / TEAM2_UGV
         elif mode == 'defense':
             # Lose reward if flag is lost.
@@ -607,15 +615,15 @@ class CapEnv(gym.Env):
         mode    : string
             Defines what will be rendered
         """
-        if self.viewer is None:
-            from gym.envs.classic_control import rendering
-            self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
-            self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
 
         if (self.RENDER_INDIV_MEMORY == True and self.INDIV_MEMORY == "fog") or (self.RENDER_TEAM_MEMORY == True and self.TEAM_MEMORY == "fog"):
             SCREEN_W = 1200
             SCREEN_H = 600
 
+            if self.viewer is None:
+                from gym.envs.classic_control import rendering
+                self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
+                self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
     
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
@@ -666,6 +674,11 @@ class CapEnv(gym.Env):
             SCREEN_W = 600
             SCREEN_H = 600
                 
+            if self.viewer is None:
+                from gym.envs.classic_control import rendering
+                self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
+                self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
+
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
             
             self._env_render(self._static_map,
@@ -724,7 +737,7 @@ class CapEnv(gym.Env):
             locx, locy = rend_loc
             locx += x * tile_w
             locy += y * tile_h
-            cur_color = COLOR_DICT[TEAM1_UGV] if entity.team == TEAM1_BACKGROUND else COLOR_DICT[TEAM2_UGV]
+            cur_color = COLOR_DICT[entity.unit_type]
             cur_color = np.divide(cur_color, 255.0)
             self.viewer.draw_polygon([
                 (locx, locy),
@@ -732,7 +745,7 @@ class CapEnv(gym.Env):
                 (locx + tile_w, locy + tile_h),
                 (locx, locy + tile_h)], color=cur_color)
 
-            if entity.air:
+            if entity.is_air:
                 self.viewer.draw_polyline([
                     (locx, locy),
                     (locx + tile_w, locy + tile_h)],
@@ -741,6 +754,15 @@ class CapEnv(gym.Env):
                     (locx + tile_w, locy),
                     (locx, locy + tile_h)],
                     color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
+            if type(entity) == GroundVehicle_Tank:
+                self.viewer.draw_polyline([
+                    (locx, locy),
+                    (locx + tile_w//2, locy + tile_h)],
+                    color=(0,0,0), linewidth=3)
+                self.viewer.draw_polyline([
+                    (locx + tile_w//2, locy + tile_h),
+                    (locx + tile_w, locy)],
+                    color=(0,0,0), linewidth=3)
 
             if entity.marker is not None:
                 ratio = 0.6
@@ -763,13 +785,13 @@ class CapEnv(gym.Env):
             if not entities.isAlive: continue
             loc = entities.get_loc()
             if mask is not None and mask[loc]: continue
-            if entities.team == TEAM1_BACKGROUND and entities.air:
+            if entities.team == TEAM1_BACKGROUND and entities.is_air:
                 board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.air:
+            elif entities.team == TEAM1_BACKGROUND and not entities.is_air:
                 board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.air:
+            elif entities.team == TEAM2_BACKGROUND and entities.is_air:
                 board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.air:
+            elif entities.team == TEAM2_BACKGROUND and not entities.is_air:
                 board[loc] = TEAM2_UGV
         return board
 

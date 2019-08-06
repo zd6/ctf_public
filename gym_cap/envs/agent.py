@@ -11,7 +11,7 @@ class Agent:
     """This is a parent class for all agents.
     It creates an instance of agent in specific location"""
 
-    def __init__(self, loc, map_only, team_number):
+    def __init__(self, loc, map_only, team_number, unit_type):
         """
         Constructor
 
@@ -27,13 +27,21 @@ class Agent:
         self.step = UGV_STEP
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
-        self.air = False
+        self.level = 'ground'
         self.memory = np.empty_like(map_only)
         self.memory_mode = "None"
         #self.ai = EnemyAI(map_only)
         self.team = team_number
         self.marker = None
-        self.move_selected = False
+
+        self.unit_type = unit_type
+        self.channel = CHANNEL[unit_type]
+        self.repr = REPRESENT[unit_type]
+
+        self.delay_count = 0
+        self.delay = 0
+        self.advantage = 1
+        self.advantage_while_moving = 0
 
     def move(self, action, env, static_map):
         """
@@ -51,22 +59,23 @@ class Agent:
             easily place the correct home tiles
         """
 
-
-        # Define channel and represented number
-        if self.air:
-            ch = CHANNEL[TEAM1_UAV] if self.team == TEAM1_BACKGROUND else CHANNEL[TEAM2_UAV]
-            icon = REPRESENT[TEAM1_UAV] if self.team == TEAM1_BACKGROUND else REPRESENT[TEAM2_UAV]
-        else:
-            ch = CHANNEL[TEAM1_UGV] if self.team == TEAM1_BACKGROUND else CHANNEL[TEAM2_UGV]
-            icon = REPRESENT[TEAM1_UGV] if self.team == TEAM1_BACKGROUND else REPRESENT[TEAM2_UGV]
-
         # If agent is dead, dont move
         if not self.isAlive:
             dead_channel = CHANNEL[DEAD]
             if env[self.x][self.y][dead_channel] == REPRESENT[DEAD]:
                 env[self.x][self.y][dead_channel] = 0
-            env[self.x][self.y][ch] = 0
+            env[self.x][self.y][self.channel] = 0
             return
+
+        if self.delay_count < self.delay:
+            self.delay_count += 1 
+            return
+        else:
+            self.delay_count = 0
+
+        channel = self.channel
+        icon = self.repr
+        collision_channels = set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level])
         
         if action == "X":
             pass
@@ -76,26 +85,24 @@ class Agent:
                          "S": [self.x, self.y + self.step],
                          "E": [self.x + self.step, self.y],
                          "W": [self.x - self.step, self.y]}
-            new_coord = new_coord[action]
+            nx, ny = new_coord[action]
 
             # Out of bound 
             length, width = static_map.shape
-            if new_coord[0] < 0: new_coord[0] = 0
-            if new_coord[1] < 0: new_coord[1] = 0
-            if new_coord[0] >= length: new_coord[0] = length-1
-            if new_coord[1] >= width: new_coord[1] = width-1
-            new_coord = tuple(new_coord)
+            if nx < 0: nx = 0
+            if ny < 0: ny = 0
+            if nx >= length: nx = length-1
+            if ny >= width: ny = width-1
 
             # Not able to move
-            if (self.x, self.y) == new_coord: return
-            # if self.air and env[new_coord[0], new_coord[1], ch] != 0: return
-            if not self.air and env[new_coord[0], new_coord[1], ch] != 0: return
-            if not self.air and static_map[new_coord] == OBSTACLE: return
+            if self.x == nx and self.y == ny: return
+            for ch in collision_channels:
+                if env[nx, ny, ch] != 0: return
 
             # Make a movement
-            env[self.x, self.y, ch] = 0
-            self.x, self.y = new_coord
-            env[self.x, self.y, ch] = icon
+            env[self.x, self.y, channel] = 0
+            env[nx, ny, channel] = icon
+            self.x, self.y = nx, ny
         else:
             print("error: wrong action selected")
     
@@ -127,7 +134,7 @@ class Agent:
         lx, ly = self.get_loc()
         small_observation = [[-1 for i in range(2 * self.range + 1)] for j in range(2 * self.range + 1)]
         small_reward = 0
-        if self.air:
+        if self.is_air:
             for x in range(lx - self.range, lx + self.range + 1):
                 for y in range(ly - self.range, ly + self.range + 1):
                     if ((x - lx) ** 2 + (y - ly) ** 2 <= self.range ** 2) and \
@@ -240,11 +247,22 @@ class Agent:
 
         return obs
 
+    @property
+    def is_air(self):
+        return self.level=='air'
+
+    @property
+    def get_advantage(self):
+        if self.delay_count < self.delay: # moving
+            return self.advantage_while_moving
+        else:
+            return self.advantage
+
 class GroundVehicle(Agent):
     """This is a child class for ground agents. Inherited from Agent class.
     It creates an instance of UGV in specific location"""
 
-    def __init__(self, loc, map_only, team_number):
+    def __init__(self, loc, map_only, team_number, unit_type):
         """
         Constructor
 
@@ -253,7 +271,7 @@ class GroundVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number)
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
 
 
 # noinspection PyCallByClass
@@ -261,7 +279,7 @@ class AerialVehicle(Agent):
     """This is a child class for aerial agents. Inherited from Agent class.
     It creates an instance of UAV in specific location"""
 
-    def __init__(self, loc, map_only, team_number):
+    def __init__(self, loc, map_only, team_number, unit_type):
         """
         Constructor
 
@@ -270,18 +288,39 @@ class AerialVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number)
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
         self.step = UAV_STEP
         self.range = UAV_RANGE
         self.a_range = UAV_A_RANGE
-        self.air = True
+        self.level = 'air'
+        self.advantage = 0
 
+class GroundVehicle_Tank(Agent):
+    """This is a child class for tank agents. Inherited from Agent class.
+    It creates an instance of UGV2 in specific location"""
+
+    def __init__(self, loc, map_only, team_number, unit_type):
+        """
+        Constructor
+
+        Parameters
+        ----------
+        self    : object
+            CapEnv object
+        """
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        self.step = UGV2_STEP
+        self.range = UGV2_RANGE
+        self.a_range = UGV2_A_RANGE
+        self.delay = UGV2_DELAY
+        self.advantage = UGV2_ADVANTAGE
+        self.advantage_while_moving = UGV2_ADVANTAGE_WHILE_MOVING
 
 class CivilAgent(GroundVehicle):
     """This is a child class for civil agents. Inherited from UGV class.
     It creates an instance of civil in specific location"""
 
-    def __init__(self, loc, map_only, team_number):
+    def __init__(self, loc, map_only, team_number, unit_type):
         """
         Constructor
 
@@ -290,6 +329,6 @@ class CivilAgent(GroundVehicle):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number)
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
         self.direction = [0, 0]
         self.isDone = False
