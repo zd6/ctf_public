@@ -1,4 +1,4 @@
-import __future__
+                    import __future__
 
 import io
 try:
@@ -403,10 +403,13 @@ class CapEnv(gym.Env):
 
 
         # Run interaction
+        survive_list = []
         for entity in self._team_blue + self._team_red:
             if entity.is_air or not entity.isAlive:
                 continue
-            self._interaction(entity)
+            survive_list.append(self._interaction(entity))
+        for status, entity in zip(survive_list, self._team_blue+self._team_red):
+            entity.isAlive = status
 
         # Check win and lose conditions
         has_alive_entity = False
@@ -467,6 +470,11 @@ class CapEnv(gym.Env):
             Represents where in the unit list is the unit to move
         team    : int
             Represents which team the unit belongs to
+
+        Return
+        ______
+        bool    :
+            Return true if the entity survived after the interaction
         """
         if self.STOCH_ATTACK:
             in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
@@ -505,15 +513,15 @@ class CapEnv(gym.Env):
                     n_enemies += self.STOCH_ATTACK_BIAS
 
                 if self.np_random.rand() > n_friends/(n_friends + n_enemies):
-                    entity.isAlive = False
                     #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-
+                    return False 
         else:
             in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
 
             loc = np.array(entity.get_loc())
+            # Check if agent is in enemy's territory
             if self._static_map[tuple(loc)] == entity.team:
-                return
+                return True
 
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
 
@@ -525,9 +533,10 @@ class CapEnv(gym.Env):
 
                 if in_range(*(loc-enemy_loc), att_range):
                     # If enemy is within attack range, declare dead
-                    entity.isAlive = False
                     #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-                    break
+                    return False
+
+        return True
 
 
     def _update_global_memory(self, env):
