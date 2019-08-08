@@ -581,8 +581,8 @@ class CapEnv(gym.Env):
             reward = 0
             red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
             blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
-            reward += 50.0 * red_alive / TEAM2_UGV
-            reward -= 50.0 * blue_alive / TEAM1_UGV
+            reward += 50.0 * red_alive / (self.NUM_RED + self.NUM_RED_UGV2)
+            reward -= 50.0 * blue_alive / (self.NUM_BLUE + self.NUM_BLUE_UGV2)
             return reward
         elif mode == 'flag':
             # Flag game reward
@@ -593,7 +593,7 @@ class CapEnv(gym.Env):
         elif mode == 'combat':
             # Aggressive combat game. Elliminate enemy to win
             red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
-            return 100 * red_alive / TEAM2_UGV
+            return 100 * red_alive / self.NUM_RED
         elif mode == 'defense':
             # Lose reward if flag is lost.
             if self.blue_flag_captured:
@@ -781,18 +781,11 @@ class CapEnv(gym.Env):
         board = np.copy(self._static_map)
         if mask is not None:
             board[mask] = UNKNOWN
-        for entities in self._team_blue+self._team_red:
-            if not entities.isAlive: continue
-            loc = entities.get_loc()
+        for entity in self._team_blue+self._team_red:
+            if not entity.isAlive: continue
+            loc = entity.get_loc()
             if mask is not None and mask[loc]: continue
-            if entities.team == TEAM1_BACKGROUND and entities.is_air:
-                board[loc] = TEAM1_UAV
-            elif entities.team == TEAM1_BACKGROUND and not entities.is_air:
-                board[loc] = TEAM1_UGV
-            elif entities.team == TEAM2_BACKGROUND and entities.is_air:
-                board[loc] = TEAM2_UAV
-            elif entities.team == TEAM2_BACKGROUND and not entities.is_air:
-                board[loc] = TEAM2_UGV
+            board[loc] = entity.unit_type
         return board
 
     @property
