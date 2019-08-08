@@ -1,4 +1,4 @@
-                    import __future__
+import __future__
 
 import io
 try:
