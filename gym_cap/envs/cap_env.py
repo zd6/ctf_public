@@ -405,12 +405,12 @@ class CapEnv(gym.Env):
         # Run interaction
         survive_list = []
         for entity in self._team_blue + self._team_red:
-            if entity.is_air or not entity.isAlive:
-                continue
-            survive_list.append(self._interaction(entity))
+            if not entity.isAlive:
+                survive_list.append(False)
+            else:
+                survive_list.append(self._interaction(entity))
         for status, entity in zip(survive_list, self._team_blue+self._team_red):
-            if entity.isAlive:
-                entity.isAlive = status
+            entity.isAlive = status
 
         # Check win and lose conditions
         has_alive_entity = False
@@ -477,6 +477,9 @@ class CapEnv(gym.Env):
         bool    :
             Return true if the entity survived after the interaction
         """
+        if entity.is_air:
+            return True
+
         if self.STOCH_ATTACK:
             in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
 
