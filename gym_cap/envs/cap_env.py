@@ -409,7 +409,8 @@ class CapEnv(gym.Env):
                 continue
             survive_list.append(self._interaction(entity))
         for status, entity in zip(survive_list, self._team_blue+self._team_red):
-            entity.isAlive = status
+            if entity.isAlive:
+                entity.isAlive = status
 
         # Check win and lose conditions
         has_alive_entity = False
