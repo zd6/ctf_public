@@ -594,7 +594,8 @@ class CapEnv(gym.Env):
             reward = 0
             red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
             blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
-            reward += 50.0 * red_alive / (self.NUM_RED + self.NUM_RED_UGV2)
+            if self.mode != 'sandbox':
+                reward += 50.0 * red_alive / (self.NUM_RED + self.NUM_RED_UGV2)
             reward -= 50.0 * blue_alive / (self.NUM_BLUE + self.NUM_BLUE_UGV2)
             return reward
         elif mode == 'flag':
