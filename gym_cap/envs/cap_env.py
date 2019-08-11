@@ -587,10 +587,10 @@ class CapEnv(gym.Env):
 
         if mode == 'dense':
             # Dead enemy team gives .5/total units for each dead unit
-            if self.blue_win:
-                return 100
             if self.red_win:
                 return -100
+            if self.blue_win:
+                return 100
             reward = 0
             red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
             blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
