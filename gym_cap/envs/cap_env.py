@@ -376,7 +376,10 @@ class CapEnv(gym.Env):
         positions = []
         for idx, act in enumerate(move_list_blue):
             if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
-                act = self.np_random.randint(0,len(self.ACTION))
+                if self._policy_blue is not None and not self._policy_blue._random_transition_safe:
+                    act = 0
+                else:
+                    act = self.np_random.randint(0,len(self.ACTION))
             self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
             positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
         self._blue_trajectory.append(positions)
@@ -385,7 +388,10 @@ class CapEnv(gym.Env):
         positions = []
         for idx, act in enumerate(move_list_red):
             if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
-                act = self.np_random.randint(0,len(self.ACTION))
+                if self._policy_red is not None and not self._policy_red._random_transition_safe:
+                    act = 0
+                else:
+                    act = self.np_random.randint(0,len(self.ACTION))
             self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
             positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
         self._red_trajectory.append(positions)
