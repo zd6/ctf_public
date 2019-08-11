@@ -12,6 +12,8 @@ The default parameters are explained below.
 If communication is allowed between agents, 
 observation for that agent is edited to include vision from other agents 
 
+![Individual Memory](https://github.com/raide-project/ctf_public/blob/gh-pages_memory/ind_memory.png)
+
 ---
 
 ### Global Memory 
@@ -28,5 +30,7 @@ The default parameters are explained below.
 **get_obs** (method): The method returns a 39X39 matrix (map_size*2-1) centered around an individual agent.
 If communication is allowed between agents, 
 observation for that agent is edited to include vision from other agents
+
+![Global Memory](https://github.com/raide-project/ctf_public/blob/gh-pages_memory/global_memory.png)
 
 ---
