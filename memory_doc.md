@@ -1,7 +1,7 @@
 ### Individual Memory 
 >def update_memory(self, env)
 
-This method returns a 20x20 matrix (map_size x map_size). It returns the vision of an individual agent. It aids in exploring the env.
+This method returns a 20x20 matrix (map_size x map_size). It returns the vision/map of the env explored by individual agent. It aids in exploring the env.
 It uses get_obs method and masks it to get the vision/map for an agent. 
 The default parameters are explained below.
 
@@ -19,7 +19,7 @@ observation for that agent is edited to include vision from other agents
 ### Global Memory 
 >def _update_global_memory(self, env)
 
-This method returns a 20x20 matrix (map_size x map_size). It returns the vision of the team. 
+This method returns a 20x20 matrix (map_size x map_size). It returns the vision/map of the env explored by the team. 
 It aids agents communicate within the team and explore the env.
 It implements update_memory method for all individual agents and creates the combined vision/map for a team. 
 The default parameters are explained below.
