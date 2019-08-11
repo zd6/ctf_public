@@ -91,7 +91,7 @@ class CapEnv(gym.Env):
                 'control': ['CONTROL_ALL'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
-                'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS',
+                'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS', 'STOCH_TRANSITIONS_MOD',
                         'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
             }
         config_datatype = {
@@ -99,7 +99,7 @@ class CapEnv(gym.Env):
                 'control': [bool],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
-                'settings': [bool, bool, float,
+                'settings': [bool, bool, float, str,
                         bool, int, bool, bool, bool]
             }
 
@@ -379,7 +379,7 @@ class CapEnv(gym.Env):
                 if self._policy_blue is not None and not self._policy_blue._random_transition_safe:
                     act = 0
                 else:
-                    act = self.np_random.randint(0,len(self.ACTION))
+                    act = self._stoch_transition(self._team_blue[idx].get_loc())
             self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
             positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
         self._blue_trajectory.append(positions)
@@ -391,7 +391,7 @@ class CapEnv(gym.Env):
                 if self._policy_red is not None and not self._policy_red._random_transition_safe:
                     act = 0
                 else:
-                    act = self.np_random.randint(0,len(self.ACTION))
+                    act = self._stoch_transition(self._team_red[idx].get_loc())
             self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
             positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
         self._red_trajectory.append(positions)
@@ -461,6 +461,20 @@ class CapEnv(gym.Env):
         self.run_step += 1
         
         return self.get_obs_blue, reward, isDone, info
+
+    def _stoch_transition(self, loc):
+        if self.STOCH_TRANSITIONS_MOD == 'random':
+            return self.np_random.randint(0,len(self.ACTION))
+        elif self.STOCH_TRANSITIONS_MOD == 'fix':
+            return 0
+        elif self.STOCH_TRANSITIONS_MOD == 'drift1':
+            if loc[0] > self.map_size[0]//2 or loc[1] > self.map_size[1]//2:
+                return self.np_random.choice([1,2])
+            else:
+                return self.np_random.choice([3,4])
+        else:
+            raise AttributeError('Unknown transition mod is used: {}'.format(self.STOCH_TRANSITIONS_MOD))
+
 
     def _interaction(self, entity):
         """
