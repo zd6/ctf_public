@@ -28,3 +28,5 @@ The default parameters are explained below.
 **get_obs** (method): The method returns a 39X39 matrix (map_size*2-1) centered around an individual agent.
 If communication is allowed between agents, 
 observation for that agent is edited to include vision from other agents
+
+---
