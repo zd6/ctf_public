@@ -24,6 +24,15 @@ UGV2_A_RANGE = 2
 UGV2_ADVANTAGE = 3
 UGV2_ADVANTAGE_WHILE_MOVING = 1
 
+NUM_BLUE_UGV3 = 0
+NUM_RED_UGV3 = 0
+UGV3_STEP = 3
+UGV3_DELAY = 0
+UGV3_RANGE = 3
+UGV3_A_RANGE = 0
+UGV3_ADVANTAGE = 0
+UGV3_ADVANTAGE_WHILE_MOVING = 0
+
 # Game Default Setting
 RL_SUGGESTIONS = False
 STOCH_TRANSITIONS = False
@@ -84,6 +93,8 @@ TEAM3_UGV = 15
 
 TEAM1_UGV2 = 16
 TEAM2_UGV2 = 17
+TEAM1_UGV3 = 18
+TEAM2_UGV3 = 19
 
 COLOR_DICT = {
         UNKNOWN : (200, 200, 200),
@@ -104,6 +115,8 @@ COLOR_DICT = {
         COMPLETED : (100, 0, 0),
         TEAM1_UGV2 : (0,0,240),
         TEAM2_UGV2 : (240,0,0),
+        TEAM1_UGV3 : (0,0,240),
+        TEAM2_UGV3 : (240,0,0),
     }
 
 NUM_CHANNEL = 7
@@ -121,6 +134,8 @@ CHANNEL = {
         TEAM2_UAV: 5,
         TEAM1_UGV2: 6,
         TEAM2_UGV2: 6,
+        TEAM1_UGV3: 6,
+        TEAM2_UGV3: 6,
    }
 
 # Represented constant
@@ -138,11 +153,13 @@ REPRESENT = {
         TEAM2_UAV: -1,
         TEAM1_UGV2: 1,
         TEAM2_UGV2: -1,
+        TEAM1_UGV3: 1,
+        TEAM2_UGV3: -1,
     }
 
 # Interaction Level
 LEVEL_GROUP = {
-        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2],
+        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2, TEAM1_UGV3, TEAM2_UGV3],
         'air'   : [TEAM1_UAV, TEAM2_UAV]
     }
 

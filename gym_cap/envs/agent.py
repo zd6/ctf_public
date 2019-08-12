@@ -316,6 +316,27 @@ class GroundVehicle_Tank(Agent):
         self.advantage = UGV2_ADVANTAGE
         self.advantage_while_moving = UGV2_ADVANTAGE_WHILE_MOVING
 
+class GroundVehicle_Scout(Agent):
+    """This is a child class for tank agents. Inherited from Agent class.
+    It creates an instance of UGV2 in specific location"""
+
+    def __init__(self, loc, map_only, team_number, unit_type):
+        """
+        Constructor
+
+        Parameters
+        ----------
+        self    : object
+            CapEnv object
+        """
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        self.step = UGV3_STEP
+        self.range = UGV3_RANGE
+        self.delay = UGV3_DELAY
+        self.a_range = UGV3_A_RANGE
+        self.advantage = UGV3_ADVANTAGE
+        self.advantage_while_moving = UGV3_ADVANTAGE_WHILE_MOVING
+
 class CivilAgent(GroundVehicle):
     """This is a child class for civil agents. Inherited from UGV class.
     It creates an instance of civil in specific location"""
