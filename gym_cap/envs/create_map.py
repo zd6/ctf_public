@@ -27,11 +27,6 @@ class CreateMap:
             True if zones are defined random
         map_obj     : list
             The necessary elements to build the map
-            0   : blue UGV
-            1   : blue UAV
-            2   : red UGV
-            3   : red UAV
-            4   : gray units
         """
         channel = CHANNEL
         repr_const = REPRESENT

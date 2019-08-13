@@ -87,7 +87,11 @@ class CapEnv(gym.Env):
         """
 
         config_param = { # Configurable parameters
-                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY', 'NUM_BLUE_UGV2', 'NUM_RED_UGV2'],
+                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY',
+                        'NUM_BLUE_UGV2', 'NUM_RED_UGV2',
+                        'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
+                        'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
+                        ],
                 'control': ['CONTROL_ALL'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],

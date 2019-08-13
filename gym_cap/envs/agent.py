@@ -341,6 +341,12 @@ class GroundVehicle_Scout(Agent):
         self.advantage = UGV3_ADVANTAGE
         self.advantage_while_moving = UGV3_ADVANTAGE_WHILE_MOVING
 
+class GroundVehicle_Clocking(Agent):
+    """This is a child class for tank agents. Inherited from Agent class.
+    It creates an instance of UGV4 in specific location"""
+
+    def __init__(self, loc, map_only, team_number, unit_type):
+        Agent.__init__(self, loc, map_only, team_number, unit_type)
         self.clocking = True
 
 class CivilAgent(GroundVehicle):

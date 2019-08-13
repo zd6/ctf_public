@@ -14,7 +14,11 @@ UGV_RANGE = 3
 UAV_A_RANGE = 0
 UGV_A_RANGE = 2
 
-""" Advanced Units (Experiment) """
+""" Advanced Units (Experiment)
+UGV2 : Tank
+UGV3 : Advanced Scout
+UGV4 : Clocking Agent
+"""
 NUM_BLUE_UGV2 = 0
 NUM_RED_UGV2 = 0
 UGV2_STEP = 1
@@ -32,6 +36,9 @@ UGV3_RANGE = 3
 UGV3_A_RANGE = 0
 UGV3_ADVANTAGE = 0
 UGV3_ADVANTAGE_WHILE_MOVING = 0
+
+NUM_BLUE_UGV4 = 0
+NUM_RED_UGV4 = 0
 
 # Game Default Setting
 RL_SUGGESTIONS = False
@@ -95,6 +102,8 @@ TEAM1_UGV2 = 16
 TEAM2_UGV2 = 17
 TEAM1_UGV3 = 18
 TEAM2_UGV3 = 19
+TEAM1_UGV4 = 20
+TEAM2_UGV4 = 21
 
 COLOR_DICT = {
         UNKNOWN : (200, 200, 200),
@@ -117,6 +126,8 @@ COLOR_DICT = {
         TEAM2_UGV2 : (240,0,0),
         TEAM1_UGV3 : (0,0,240),
         TEAM2_UGV3 : (240,0,0),
+        TEAM1_UGV4 : (0,0,240),
+        TEAM2_UGV4 : (240,0,0),
     }
 
 NUM_CHANNEL = 7
@@ -136,6 +147,8 @@ CHANNEL = {
         TEAM2_UGV2: 6,
         TEAM1_UGV3: 6,
         TEAM2_UGV3: 6,
+        TEAM1_UGV4: 6,
+        TEAM2_UGV4: 6,
    }
 
 # Represented constant
@@ -155,11 +168,13 @@ REPRESENT = {
         TEAM2_UGV2: -1,
         TEAM1_UGV3: 1,
         TEAM2_UGV3: -1,
+        TEAM1_UGV4: 1,
+        TEAM2_UGV4: -1,
     }
 
 # Interaction Level
 LEVEL_GROUP = {
-        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2, TEAM1_UGV3, TEAM2_UGV3],
+        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2, TEAM1_UGV3, TEAM2_UGV3, TEAM1_UGV4, TEAM2_UGV4],
         'air'   : [TEAM1_UAV, TEAM2_UAV]
     }
 
