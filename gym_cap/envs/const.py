@@ -5,7 +5,8 @@ BLUE = 50
 GRAY = 90
 NUM_BLUE = 4
 NUM_RED = 4
-NUM_UAV = 0
+NUM_BLUE_UAV = 0
+NUM_RED_UAV = 0
 NUM_GRAY = 0
 UAV_STEP = 3
 UGV_STEP = 1
@@ -14,7 +15,11 @@ UGV_RANGE = 3
 UAV_A_RANGE = 0
 UGV_A_RANGE = 2
 
-""" Advanced Units (Experiment) """
+""" Advanced Units (Experiment)
+UGV2 : Tank
+UGV3 : Advanced Scout
+UGV4 : Clocking Agent
+"""
 NUM_BLUE_UGV2 = 0
 NUM_RED_UGV2 = 0
 UGV2_STEP = 1
@@ -32,6 +37,9 @@ UGV3_RANGE = 3
 UGV3_A_RANGE = 0
 UGV3_ADVANTAGE = 0
 UGV3_ADVANTAGE_WHILE_MOVING = 0
+
+NUM_BLUE_UGV4 = 0
+NUM_RED_UGV4 = 0
 
 # Game Default Setting
 RL_SUGGESTIONS = False
@@ -60,20 +68,6 @@ RENDER_TEAM_MEMORY = False
 CONTROL_ALL = False  # If true, step(action) controls both red and blue
 NP_SEED = None
 
-# MapConst
-""" Defining the constants for map and environment """
-# WORLD_H = 100
-# WORLD_W = 100
-# RED_ZONE = 15
-# RED_AGENT = 20
-# RED_FLAG = 10
-# BLUE_ZONE = 55
-# BLUE_AGENT = 60
-# BLUE_FLAG = 50
-# GRAY_AGENT = 95
-# #OBSTACLE = 100
-# AERIAL_DENIAL = 90
-
 SUGGESTION = -5
 BLACK = -2
 UNKNOWN = -1
@@ -95,6 +89,8 @@ TEAM1_UGV2 = 16
 TEAM2_UGV2 = 17
 TEAM1_UGV3 = 18
 TEAM2_UGV3 = 19
+TEAM1_UGV4 = 20
+TEAM2_UGV4 = 21
 
 COLOR_DICT = {
         UNKNOWN : (200, 200, 200),
@@ -117,6 +113,8 @@ COLOR_DICT = {
         TEAM2_UGV2 : (240,0,0),
         TEAM1_UGV3 : (0,0,240),
         TEAM2_UGV3 : (240,0,0),
+        TEAM1_UGV4 : (0,0,240),
+        TEAM2_UGV4 : (240,0,0),
     }
 
 NUM_CHANNEL = 7
@@ -136,17 +134,19 @@ CHANNEL = {
         TEAM2_UGV2: 6,
         TEAM1_UGV3: 6,
         TEAM2_UGV3: 6,
+        TEAM1_UGV4: 6,
+        TEAM2_UGV4: 6,
    }
 
 # Represented constant
 REPRESENT = {
         UNKNOWN: 1,
         DEAD: 0,
+        OBSTACLE: 1,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: -1,
         TEAM1_FLAG: 1,
         TEAM2_FLAG: -1,
-        OBSTACLE: 1,
         TEAM1_UGV: 1,
         TEAM2_UGV: -1,
         TEAM1_UAV: 1,
@@ -155,11 +155,13 @@ REPRESENT = {
         TEAM2_UGV2: -1,
         TEAM1_UGV3: 1,
         TEAM2_UGV3: -1,
+        TEAM1_UGV4: 1,
+        TEAM2_UGV4: -1,
     }
 
 # Interaction Level
 LEVEL_GROUP = {
-        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2, TEAM1_UGV3, TEAM2_UGV3],
+        'ground': [OBSTACLE, TEAM1_UGV, TEAM2_UGV, TEAM1_UGV2, TEAM2_UGV2, TEAM1_UGV3, TEAM2_UGV3, TEAM1_UGV4, TEAM2_UGV4],
         'air'   : [TEAM1_UAV, TEAM2_UAV]
     }
 

@@ -11,7 +11,7 @@ class Agent:
     """This is a parent class for all agents.
     It creates an instance of agent in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -24,14 +24,17 @@ class Agent:
         """
         self.isAlive = True
         self.x, self.y = loc
+        self.static_map = static_map
+
+        self.team = team_number
         self.step = UGV_STEP
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.level = 'ground'
-        self.memory = np.empty_like(map_only)
+        self.memory = np.empty_like(static_map)
         self.memory_mode = "None"
-        #self.ai = EnemyAI(map_only)
-        self.team = team_number
+        #self.ai = EnemyAI(static_map)
+        
         self.marker = None
 
         self.unit_type = unit_type
@@ -45,6 +48,7 @@ class Agent:
         self.advantage_while_moving = 0
 
         ## Special Features
+        self.visible = True
         self.clocking = False  # Hide with the move 0
 
     def move(self, action, env, static_map):
@@ -79,29 +83,48 @@ class Agent:
 
         channel = self.channel
         icon = self.repr
-        collision_channels = set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level])
+        collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level]))
         
         if action == "X":
-            pass
+            if self.clocking:
+                self.visible = False
+                self.marker = (255,255,255)
+            return
         
         elif action in ["N", "S", "E", "W"]:
-            new_coord = {"N": [self.x, self.y - self.step],
-                         "S": [self.x, self.y + self.step],
-                         "E": [self.x + self.step, self.y],
-                         "W": [self.x - self.step, self.y]}
-            nx, ny = new_coord[action]
+            if self.clocking:
+                self.visible = True
+                self.marker = None
+            #new_coord = {"N": [self.x, self.y - self.step],
+            #             "S": [self.x, self.y + self.step],
+            #             "E": [self.x + self.step, self.y],
+            #             "W": [self.x - self.step, self.y]}
+            dstep = {"N": [0 ,-1],
+                     "S": [0 , 1],
+                     "E": [1 , 0],
+                     "W": [-1, 0]}[action]
 
-            # Out of bound 
             length, width = static_map.shape
-            if nx < 0: nx = 0
-            if ny < 0: ny = 0
-            if nx >= length: nx = length-1
-            if ny >= width: ny = width-1
+            px, py = self.x, self.y
+            nx, ny = px, py
+            for s in range(self.step):
+                px += dstep[0] 
+                py += dstep[1]
+
+                if px < 0 or px >= length: break
+                if py < 0 or py >= width: break
+                collide = False
+                for ch in collision_channels:
+                    if env[px, py, ch] != 0:
+                        collide = True
+                        break
+                if collide:
+                    break
+
+                nx, ny = px, py
 
             # Not able to move
             if self.x == nx and self.y == ny: return
-            for ch in collision_channels:
-                if env[nx, ny, ch] != 0: return
 
             # Make a movement
             env[self.x, self.y, channel] = 0
@@ -256,6 +279,10 @@ class Agent:
         return self.level=='air'
 
     @property
+    def is_visible(self):
+        return self.visible
+
+    @property
     def get_advantage(self):
         if self.delay_count < self.delay: # moving
             return self.advantage_while_moving
@@ -266,7 +293,7 @@ class GroundVehicle(Agent):
     """This is a child class for ground agents. Inherited from Agent class.
     It creates an instance of UGV in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -275,7 +302,7 @@ class GroundVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
 
 
 # noinspection PyCallByClass
@@ -283,7 +310,7 @@ class AerialVehicle(Agent):
     """This is a child class for aerial agents. Inherited from Agent class.
     It creates an instance of UAV in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -292,7 +319,7 @@ class AerialVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UAV_STEP
         self.range = UAV_RANGE
         self.a_range = UAV_A_RANGE
@@ -303,7 +330,7 @@ class GroundVehicle_Tank(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
     It creates an instance of UGV2 in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -312,7 +339,7 @@ class GroundVehicle_Tank(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UGV2_STEP
         self.range = UGV2_RANGE
         self.a_range = UGV2_A_RANGE
@@ -324,7 +351,7 @@ class GroundVehicle_Scout(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
     It creates an instance of UGV3 in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -333,7 +360,7 @@ class GroundVehicle_Scout(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UGV3_STEP
         self.range = UGV3_RANGE
         self.delay = UGV3_DELAY
@@ -341,13 +368,19 @@ class GroundVehicle_Scout(Agent):
         self.advantage = UGV3_ADVANTAGE
         self.advantage_while_moving = UGV3_ADVANTAGE_WHILE_MOVING
 
+class GroundVehicle_Clocking(Agent):
+    """This is a child class for tank agents. Inherited from Agent class.
+    It creates an instance of UGV4 in specific location"""
+
+    def __init__(self, loc, static_map, team_number, unit_type):
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.clocking = True
 
 class CivilAgent(GroundVehicle):
     """This is a child class for civil agents. Inherited from UGV class.
     It creates an instance of civil in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -356,6 +389,6 @@ class CivilAgent(GroundVehicle):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.direction = [0, 0]
         self.isDone = False
