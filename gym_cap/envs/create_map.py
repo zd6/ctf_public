@@ -2,216 +2,212 @@ import numpy as np
 import random
 from .const import *
 
-class CreateMap:
-    """This class generates and back-propogates a random map
-    given dimension size, number of obstacles,
-    and number of agents for each team"""
+"""
+This module generates a map given desire conditions:
 
-    @staticmethod
-    def gen_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
-                map_obj=[NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY, NUM_BLUE_UGV2, NUM_RED_UGV2]):
-        """
-        Method
+gen_random_map:
+    It creates random map given dimension size, number of obstacles,
+    and number of agents for each team.
+    The background can be divided in half, or random box.
+custom_map:
+    It generates map given a numpy array.
+"""
 
-        Generate map with given setting
+def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
+            map_obj=None):
+    """
+    Method
 
-        Parameters
-        ----------
-        name        : TODO
-            Not used
-        dim         : int
-            Size of the map
-        in_seed     : int
-            Random seed between 0 and 2**32
-        rand_zones  : bool
-            True if zones are defined random
-        map_obj     : list
-            The necessary elements to build the map
-        """
-        channel = CHANNEL
-        repr_const = REPRESENT
+    Generate map with given setting
 
-        # ASSERTION
-        assert map_obj is not None
+    Parameters
+    ----------
+    name        : TODO
+        Not used
+    dim         : int
+        Size of the map
+    in_seed     : int
+        Random seed between 0 and 2**32
+    rand_zones  : bool
+        True if zones are defined random
+    map_obj     : list
+        The necessary elements to build the map
+        0   : blue UGV
+        1   : blue UAV
+        2   : red UGV
+        3   : red UAV
+        4   : gray units
+    """
 
-        # init the seed and set new_map to zeros
-        if np_random == None:
-            np_random = np.random
-        if not in_seed == None:
-            np.random.seed(in_seed)
+    # ASSERTION
+    assert map_obj is not None
 
-        # zones init
-        new_map = np.zeros([dim, dim, NUM_CHANNEL], dtype=int)
-        new_map[:,:,channel[TEAM2_BACKGROUND]] = repr_const[TEAM2_BACKGROUND]
+    # INITIALIZE THE SEED 
+    if np_random is None:
+        np_random = np.random
+    if in_seed is not None:
+        np.random.seed(in_seed)
+
+    # PARAMETERS
+    num_flag = 1
+    total_blue, total_red = num_flag, num_flag
+    for k, v in map_obj.items():
+        total_blue += v[0]
+        total_red += v[1]
+
+    # CH 0 : UNKNOWN
+    mask = np.zeros([dim, dim], dtype=int)
+
+    can_fit = True
+    while can_fit:
+        # CH 1 : ZONE (included in static)
+        zone = np.ones([dim, dim], dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
+        static_map = np.zeros([dim, dim], dtype=int)
         if rand_zones:
             sx, sy = np_random.randint(dim//2, 4*dim//5, [2])
             lx, ly = np_random.randint(0, dim - max(sx,sy)-1, [2])
-            new_map[lx:lx+sx, ly:ly+sy, channel[TEAM1_BACKGROUND]] = repr_const[TEAM1_BACKGROUND]
+            zone[lx:lx+sx, ly:ly+sy] = -1
+            static_map[lx:lx+sx, ly:ly+sy] = TEAM2_BACKGROUND
         else:
-            new_map[:,0:dim//2, channel[TEAM1_BACKGROUND]] = repr_const[TEAM1_BACKGROUND]
+            zone[:,0:dim//2] = -1
+            static_map[:,0:dim//2] = TEAM2_BACKGROUND
+            zone = np.rot90(zone)
+        if 0.5 < np_random.rand():
+            zone = -zone  # Reverse
+            static_map = -static_map+1  # TODO: not a safe method to reverse static_map
 
-        # obstacles init
+        # CH 3 : OBSTACLE
+        obst = np.zeros([dim, dim], dtype=int)
         num_obst = int(np.sqrt(dim))
         for i in range(num_obst):
             lx, ly = np_random.randint(0, dim, [2])
             sx, sy = np_random.randint(0, dim//5, [2]) + 1
-            new_map[lx-sx:lx+sx, ly-sy:ly+sy, channel[OBSTACLE]] = repr_const[OBSTACLE]
-            new_map[lx-sx:lx+sx, ly-sy:ly+sy, channel[TEAM1_BACKGROUND]] = 0
+            zone[lx-sx:lx+sx, ly-sy:ly+sy] = 0
+            obst[lx-sx:lx+sx, ly-sy:ly+sy] = REPRESENT[OBSTACLE]
+            static_map[lx-sx:lx+sx, ly-sy:ly+sy] = OBSTACLE
 
-        element_count = dict(zip(*np.unique(new_map[:,:,channel[TEAM1_BACKGROUND]], return_counts=True)))
-        num_team1_space = element_count[repr_const[TEAM1_BACKGROUND]]
-        num_team2_space = element_count[repr_const[TEAM2_BACKGROUND]]
-        if num_team1_space < 1 + map_obj[0] + map_obj[1]:
-            raise Exception('Cannot fit all blue object in an given map.')
-        if num_team2_space  < 1 + map_obj[2] + map_obj[3]:
-            raise Exception('Cannot fit all red object in an given map.')
+        ## Random Coord Create
+        try: # Take possible coordinates for all elements
+            blue_pool = np.argwhere(zone== 1)
+            blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
+            blue_coord = np.take(blue_pool, blue_indices, axis=0)
 
-        # define location of flags
-        team_map = new_map[:,:,channel[TEAM1_BACKGROUND]]
-        team1_pool = np.argwhere(team_map==repr_const[TEAM1_BACKGROUND]).tolist()
-        team2_pool = np.argwhere(team_map==repr_const[TEAM2_BACKGROUND]).tolist()
-        random.shuffle(team1_pool)
-        random.shuffle(team2_pool)
+            red_pool = np.argwhere(zone==-1)
+            red_indices = np_random.choice(len(red_pool), total_red, replace=False)
+            red_coord = np.take(red_pool, red_indices, axis=0)
 
-        CreateMap.populate_map(new_map, team1_pool,
-                repr_const[TEAM1_FLAG], channel[TEAM1_FLAG], 1)
-        CreateMap.populate_map(new_map, team2_pool,
-                repr_const[TEAM2_FLAG], channel[TEAM2_FLAG], 1)
+            can_fit = False # Exit loop
+        except ValueError as e:
+            msg = "This warning occurs when the map is too small to allocate all elements."
+            #raise ValueError(msg) from e
 
-        # define location of agents
-        agent_locs = {}
-        agent_locs[TEAM1_UGV] = CreateMap.populate_map(new_map, team1_pool,
-                repr_const[TEAM1_UGV], channel[TEAM1_UGV], map_obj[0])
-        agent_locs[TEAM1_UAV] = CreateMap.populate_map(new_map, team1_pool,
-                repr_const[TEAM1_UAV], channel[TEAM1_UAV], map_obj[1])
-        agent_locs[TEAM1_UGV2] = CreateMap.populate_map(new_map, team1_pool,
-                repr_const[TEAM1_UGV2], channel[TEAM1_UGV2], map_obj[5])
-        agent_locs[TEAM2_UGV] = CreateMap.populate_map(new_map, team2_pool,
-                repr_const[TEAM2_UGV], channel[TEAM2_UGV], map_obj[2])
-        agent_locs[TEAM2_UAV] = CreateMap.populate_map(new_map, team2_pool,
-                repr_const[TEAM2_UAV], channel[TEAM2_UAV], map_obj[3])
-        agent_locs[TEAM2_UGV2] = CreateMap.populate_map(new_map, team2_pool,
-                repr_const[TEAM2_UGV2], channel[TEAM2_UGV2], map_obj[6])
+    # CH 2 : FLAG (included in static)
+    flag = np.zeros([dim, dim], dtype=int)
 
-        # TODO: change zone for grey team to complete map
-        #new_map = CreateMap.populate_map(new_map,
-        #                     TEAM2_BACKGROUND, TEAM3_UGV, map_obj[4])
+    blue_flag_coord, blue_coord = blue_coord[:num_flag], blue_coord[num_flag:]
+    flag[blue_flag_coord[:,0], blue_flag_coord[:,1]] = 1
+    static_map[blue_flag_coord[:,0], blue_flag_coord[:,1]] = TEAM1_FLAG
 
-        #np.save('map.npy', new_map)
-
-        # build static map
-        static_elem = [TEAM1_BACKGROUND, TEAM2_BACKGROUND, OBSTACLE, TEAM1_FLAG, TEAM2_FLAG]
-        static_map = np.zeros([dim,dim], dtype=int)
-        for elem in static_elem:
-            ch = channel[elem]
-            rep = repr_const[elem]
-            static_map[new_map[:,:,ch]==rep] = elem
-
-        return new_map, static_map, agent_locs
+    red_flag_coord, red_coord = red_coord[:num_flag], red_coord[num_flag:]
+    flag[red_flag_coord[:,0], red_flag_coord[:,1]] = -1
+    static_map[red_flag_coord[:,0], red_flag_coord[:,1]] = TEAM2_FLAG
     
-    @staticmethod
-    def set_custom_map(new_map):
-        """
-        Method
-            Outputs static_map when new_map is given as input.
-            Addtionally the number of agents will also be
-            counted
-        
-        Parameters
-        ----------
-        new_map        : numpy array
-            new_map
-        The necessary elements:
-            ugv_1   : blue UGV
-            ugv_2   : red UGV
-            uav_2   : red UAV
-            gray    : gray units
-            
-        """
-        
-        channel = CHANNEL
-        repr_const = REPRESENT
-        
-        # build object count array
-        element_count = dict(zip(*np.unique(new_map, return_counts=True)))
-        ugv_1 = element_count.get(TEAM1_UGV, 0)
-        ugv_2 = element_count.get(TEAM2_UGV, 0)
-        ugv2_1 = element_count.get(TEAM1_UGV2, 0)
-        ugv2_2 = element_count.get(TEAM2_UGV2, 0)
-        uav_1 = element_count.get(TEAM1_UAV, 0)
-        uav_2 = element_count.get(TEAM2_UAV, 0)
-        gray = element_count.get(TEAM3_UGV, 0)
-        obj_arr = [ugv_1, uav_1, ugv_2, uav_2, gray, ugv2_1, ugv2_2]
+    ## Agents
+    agent_locs = {}
 
-        # Find locations
-        team1_ugv_loc = new_map==TEAM1_UGV
-        team1_ugv2_loc = new_map==TEAM1_UGV2
-        team1_uav_loc = new_map==TEAM1_UAV
-        team2_ugv_loc = new_map==TEAM2_UGV
-        team2_ugv2_loc = new_map==TEAM2_UGV2
-        team2_uav_loc = new_map==TEAM2_UAV
-        team3_ugv_loc = new_map==TEAM3_UGV
+    # CH 4 : UGV
+    ugv = np.zeros([dim, dim], dtype=int)
 
-        # build static map
-        static_map = np.copy(new_map)
-        static_map[team1_ugv_loc] = TEAM1_BACKGROUND
-        static_map[team1_ugv2_loc] = TEAM1_BACKGROUND
-        static_map[team1_uav_loc] = TEAM1_BACKGROUND
-        static_map[team2_ugv_loc] = TEAM2_BACKGROUND
-        static_map[team2_ugv2_loc] = TEAM2_BACKGROUND
-        static_map[team2_uav_loc] = TEAM2_BACKGROUND
-        static_map[team3_ugv_loc] = TEAM1_BACKGROUND # subject to change
+    nb, nr = map_obj[(TEAM1_UGV, TEAM2_UGV)]
+
+    coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
+    ugv[coord[:,0], coord[:,1]] = REPRESENT[TEAM1_UGV]
+    agent_locs[TEAM1_UGV] = coord.tolist()
+
+    coord, red_coord = red_coord[:nr], red_coord[nr:]
+    ugv[coord[:,0], coord[:,1]] = REPRESENT[TEAM2_UGV]
+    agent_locs[TEAM2_UGV] = coord.tolist()
+    
+    # CH 5 : UAV
+    uav = np.zeros([dim, dim], dtype=int)
+
+    nb, nr = map_obj[(TEAM1_UAV, TEAM2_UAV)]
+
+    coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
+    uav[coord[:,0], coord[:,1]] = REPRESENT[TEAM1_UAV]
+    agent_locs[TEAM1_UAV] = coord.tolist()
+
+    coord, red_coord = red_coord[:nr], red_coord[nr:]
+    uav[coord[:,0], coord[:,1]] = REPRESENT[TEAM2_UAV]
+    agent_locs[TEAM2_UAV] = coord.tolist()
+
+    # CH 6 : UGVs
+    ugvs = np.zeros([dim, dim], dtype=int)
+
+    keys = [(TEAM1_UGV2, TEAM2_UGV2), (TEAM1_UGV3, TEAM2_UGV3), (TEAM1_UGV4, TEAM2_UGV4)]
+    for k in keys:
+        nb, nr = map_obj[k]
+        coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
+        ugvs[coord[:,0], coord[:,1]] = REPRESENT[k[0]]
+        agent_locs[k[0]] = coord.tolist()
+
+        coord, red_coord = red_coord[:nr], red_coord[nr:]
+        ugvs[coord[:,0], coord[:,1]] = REPRESENT[k[1]]
+        agent_locs[k[1]] = coord.tolist()
+
+    new_map = np.stack([mask, zone, flag, obst, ugv, uav, ugvs], axis=-1)
+
+    return new_map, static_map, agent_locs
+
+def custom_map(new_map):
+    """
+    Method
+        Outputs static_map when new_map is given as input.
+        Addtionally the number of agents will also be
+        counted
+    
+    Parameters
+    ----------
+    new_map        : numpy array
+        new_map
+    The necessary elements:
+        ugv_1   : blue UGV
+        ugv_2   : red UGV
+        uav_2   : red UAV
+        gray    : gray units
         
-        # build 3D new_map
-        l, b = new_map.shape
-        nd_map = np.zeros([l, b,NUM_CHANNEL], dtype = int)
-        for elem in channel.keys():
-            ch = channel[elem]
-            const = repr_const[elem]
-            if elem in new_map:
-                nd_map[new_map==elem,ch] = const
-        
-        # location of agents
-        agent_locs = {}
-        agent_locs[TEAM1_UGV] = np.argwhere(team1_ugv_loc)
-        agent_locs[TEAM1_UGV2] = np.argwhere(team1_ugv2_loc)
-        agent_locs[TEAM1_UAV] = np.argwhere(team1_uav_loc)
-        agent_locs[TEAM2_UGV] = np.argwhere(team2_ugv_loc)
-        agent_locs[TEAM2_UGV2] = np.argwhere(team2_ugv2_loc)
-        agent_locs[TEAM2_UAV] = np.argwhere(team2_uav_loc)
-        
-        nd_map[team1_ugv_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
-        nd_map[team1_ugv2_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
-        nd_map[team1_uav_loc, CHANNEL[TEAM1_BACKGROUND]] = REPRESENT[TEAM1_BACKGROUND]
-        nd_map[team2_ugv_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
-        nd_map[team2_ugv2_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
-        nd_map[team2_uav_loc, CHANNEL[TEAM2_BACKGROUND]] = REPRESENT[TEAM2_BACKGROUND]
-        
-        return nd_map, static_map, obj_arr, agent_locs
+    """
+    
+    # build object count array
+    element_count = dict(zip(*np.unique(new_map, return_counts=True)))
 
-    @staticmethod
-    def populate_map(new_map, code_where, code_what, channel, number=1):
-        """
-        Function
-            Adds "code_what" to a random location of "code_where" at "new_map"
+    keys = {TEAM1_BACKGROUND: [TEAM1_UGV, TEAM1_UAV, TEAM1_UGV2, TEAM1_UGV3, TEAM1_UGV4],
+            TEAM2_BACKGROUND: [TEAM2_UGV, TEAM2_UAV, TEAM2_UGV2, TEAM2_UGV3, TEAM2_UGV4] }
+    obj_dict = {TEAM1_BACKGROUND: [],
+                TEAM2_BACKGROUND: []}
+    static_map = np.copy(new_map)
+    agent_locs = {}
+    l, b = new_map.shape
 
-        Parameters
-        ----------
-        new_map     : 2d numpy array
-            Map of the environment
-        code_where  : list
-            List of coordinate to put element 
-        code_what   : int
-            Value assigned to the random location of the map
-        number      : int
-            Number of element to place
-        """
-        if number == 0:
-            return
+    # Build 3d map
+    nd_map = np.zeros([l, b, NUM_CHANNEL], dtype = int)
+    for elem in CHANNEL.keys():
+        ch = CHANNEL[elem]
+        const = REPRESENT[elem]
+        if elem in new_map:
+            nd_map[new_map==elem,ch] = const
 
-        args = np.array(code_where[:number])
-        del code_where[:number]
+    for team, elems in keys.items():
+        for e in elems:
+            count = element_count.get(e, 0)
+            obj_dict[team].append(count)
 
-        new_map[args[:,0], args[:,1], channel] = code_what
+            loc = new_map==e
+            static_map[loc] = team
 
-        return args.tolist()
+            agent_locs[e] = np.argwhere(loc)
+
+            nd_map[loc, CHANNEL[team]] = REPRESENT[team]
+
+    return nd_map, static_map, obj_dict, agent_locs
+

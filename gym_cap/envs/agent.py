@@ -11,7 +11,7 @@ class Agent:
     """This is a parent class for all agents.
     It creates an instance of agent in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -24,14 +24,17 @@ class Agent:
         """
         self.isAlive = True
         self.x, self.y = loc
+        self.static_map = static_map
+
+        self.team = team_number
         self.step = UGV_STEP
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.level = 'ground'
-        self.memory = np.empty_like(map_only)
+        self.memory = np.empty_like(static_map)
         self.memory_mode = "None"
-        #self.ai = EnemyAI(map_only)
-        self.team = team_number
+        #self.ai = EnemyAI(static_map)
+        
         self.marker = None
 
         self.unit_type = unit_type
@@ -266,7 +269,7 @@ class GroundVehicle(Agent):
     """This is a child class for ground agents. Inherited from Agent class.
     It creates an instance of UGV in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -275,7 +278,7 @@ class GroundVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
 
 
 # noinspection PyCallByClass
@@ -283,7 +286,7 @@ class AerialVehicle(Agent):
     """This is a child class for aerial agents. Inherited from Agent class.
     It creates an instance of UAV in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -292,7 +295,7 @@ class AerialVehicle(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UAV_STEP
         self.range = UAV_RANGE
         self.a_range = UAV_A_RANGE
@@ -303,7 +306,7 @@ class GroundVehicle_Tank(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
     It creates an instance of UGV2 in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -312,7 +315,7 @@ class GroundVehicle_Tank(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UGV2_STEP
         self.range = UGV2_RANGE
         self.a_range = UGV2_A_RANGE
@@ -324,7 +327,7 @@ class GroundVehicle_Scout(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
     It creates an instance of UGV3 in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -333,7 +336,7 @@ class GroundVehicle_Scout(Agent):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.step = UGV3_STEP
         self.range = UGV3_RANGE
         self.delay = UGV3_DELAY
@@ -345,15 +348,15 @@ class GroundVehicle_Clocking(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
     It creates an instance of UGV4 in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+    def __init__(self, loc, static_map, team_number, unit_type):
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.clocking = True
 
 class CivilAgent(GroundVehicle):
     """This is a child class for civil agents. Inherited from UGV class.
     It creates an instance of civil in specific location"""
 
-    def __init__(self, loc, map_only, team_number, unit_type):
+    def __init__(self, loc, static_map, team_number, unit_type):
         """
         Constructor
 
@@ -362,6 +365,6 @@ class CivilAgent(GroundVehicle):
         self    : object
             CapEnv object
         """
-        Agent.__init__(self, loc, map_only, team_number, unit_type)
+        Agent.__init__(self, loc, static_map, team_number, unit_type)
         self.direction = [0, 0]
         self.isDone = False

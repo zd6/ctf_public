@@ -5,7 +5,8 @@ BLUE = 50
 GRAY = 90
 NUM_BLUE = 4
 NUM_RED = 4
-NUM_UAV = 0
+NUM_BLUE_UAV = 0
+NUM_RED_UAV = 0
 NUM_GRAY = 0
 UAV_STEP = 3
 UGV_STEP = 1
@@ -66,20 +67,6 @@ RENDER_TEAM_MEMORY = False
 # Control Setting (Experiment)
 CONTROL_ALL = False  # If true, step(action) controls both red and blue
 NP_SEED = None
-
-# MapConst
-""" Defining the constants for map and environment """
-# WORLD_H = 100
-# WORLD_W = 100
-# RED_ZONE = 15
-# RED_AGENT = 20
-# RED_FLAG = 10
-# BLUE_ZONE = 55
-# BLUE_AGENT = 60
-# BLUE_FLAG = 50
-# GRAY_AGENT = 95
-# #OBSTACLE = 100
-# AERIAL_DENIAL = 90
 
 SUGGESTION = -5
 BLACK = -2
@@ -155,11 +142,11 @@ CHANNEL = {
 REPRESENT = {
         UNKNOWN: 1,
         DEAD: 0,
+        OBSTACLE: 1,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: -1,
         TEAM1_FLAG: 1,
         TEAM2_FLAG: -1,
-        OBSTACLE: 1,
         TEAM1_UGV: 1,
         TEAM2_UGV: -1,
         TEAM1_UAV: 1,

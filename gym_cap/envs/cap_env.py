@@ -16,7 +16,7 @@ from gym.utils import seeding
 import numpy as np
 
 from .agent import *
-from .create_map import CreateMap
+from .create_map import gen_random_map, custom_map
 from gym_cap.envs import const
 
 """
@@ -87,7 +87,7 @@ class CapEnv(gym.Env):
         """
 
         config_param = { # Configurable parameters
-                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_UAV', 'NUM_GRAY',
+                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_BLUE_UAV', 'NUM_RED_UAV', 'NUM_GRAY',
                         'NUM_BLUE_UGV2', 'NUM_RED_UGV2',
                         'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
                         'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
@@ -99,7 +99,10 @@ class CapEnv(gym.Env):
                         'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
             }
         config_datatype = {
-                'elements': [int, int, int ,int, int, int],
+                'elements': [int, int, int ,int, int,
+                        int, int,
+                        int, int,
+                        int, int],
                 'control': [bool],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
@@ -133,20 +136,25 @@ class CapEnv(gym.Env):
 
     def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
             custom_board=None, config_path=None):
-        """
+        """ 
         Resets the game
 
-        :param map_size: Size of the map
-        :param mode: Action generation mode
-        :return: void
+        Parameters
+        ----------------
+
+        map_size : [int] 
+        mode : [str] 
+        policy_blue : [policy] 
+        policy_red : [policy] 
+        custom_board : [str, numpy.ndarray] 
+        config_path : [str] 
 
         """
 
         # ASSERTIONS
+        assert map_size is None or type(map_size) is int
 
         # WARNINGS
-        #if config_path is not None and custom_board is not None:
-        #    print('Custom configuration path is specified, but the custom board is given. Some configuration will be ignored.')
 
         # STORE ARGUMENTS
         self.mode = mode
@@ -159,41 +167,45 @@ class CapEnv(gym.Env):
 
         # INITIALIZE MAP
         if custom_board is None:  # Random Generated Map
-            map_obj = [self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY,
-                    self.NUM_BLUE_UGV2, self.NUM_RED_UGV2]
-            self._env, self._static_map, agent_locs = CreateMap.gen_map('map',
+            map_obj = {
+                    (const.TEAM1_UGV, const.TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
+                    (const.TEAM1_UAV, const.TEAM2_UAV): (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
+                    (const.TEAM1_UGV2, const.TEAM2_UGV2): (self.NUM_BLUE_UGV2, self.NUM_RED_UGV2),
+                    (const.TEAM1_UGV3, const.TEAM2_UGV3): (self.NUM_BLUE_UGV3, self.NUM_RED_UGV3),
+                    (const.TEAM1_UGV4, const.TEAM2_UGV4): (self.NUM_BLUE_UGV4, self.NUM_RED_UGV4)
+                }
+
+            self._env, self._static_map, agent_locs = gen_random_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
         elif type(custom_board) is str:
             custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY, self.NUM_BLUE_UGV2, self.NUM_RED_UGV2 = map_obj
+            self._env, self._static_map, map_obj, agent_locs = custom_map(custom_map)
+            self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
+            self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
         elif type(custom_board) is np.ndarray:
             custom_map = custom_board
-            self._env, self._static_map, map_obj, agent_locs = CreateMap.set_custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_UAV, self.NUM_RED, self.NUM_UAV, self.NUM_GRAY, self.NUM_BLUE_UGV2, self.NUM_RED_UGV2 = map_obj
-
+            self._env, self._static_map, map_obj, agent_locs = custom_map(custom_map)
+            self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
+            self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
         self.map_size = tuple(self._static_map.shape)
-        self.action_space = spaces.Discrete(len(self.ACTION) ** (map_obj[0] + map_obj[1] + map_obj[5]))
-        self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
-        if map_obj[2] == 0:
-            self.mode = "sandbox"
 
         # INITIALIZE TEAM
         self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
 
-        # INITIALIZE POLICY
+        self.action_space = spaces.Discrete(len(self.ACTION) ** len(self._team_blue))
+        self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
+        if len(self._team_red) == 0:
+            self.mode = "sandbox"
+
+        # INITIATE POLICY
         if policy_blue is not None:
-            try:
-                self._policy_blue = policy_blue
-            except Exception as e:
-                print("Blue policy does not have Policy_gen object", e)
-                raise
+            self._policy_blue = policy_blue
         if policy_red is not None:
-            try:
-                self._policy_red = policy_red
-            except Exception as e:
-                print("Red policy does not have Policy_gen object", e)
-                raise
+            self._policy_red = policy_red
+        if self._policy_blue is not None:
+            self._policy_blue.initiate(self._static_map, self._team_blue)
+        if self._policy_red is not None:
+            self._policy_red.initiate(self._static_map, self._team_red)
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
@@ -205,13 +217,7 @@ class CapEnv(gym.Env):
                 agent.memory[:] = const.UNKNOWN
                 agent.memory_mode = "fog"
 
-        # INITIATE POLICY
-        if self._policy_blue is not None:
-            self._policy_blue.initiate(self._static_map, self._team_blue)
-        if self._policy_red is not None:
-            self._policy_red.initiate(self._static_map, self._team_red)
-
-        # INITIALIZE TRAJECTORY
+        # INITIALIZE TRAJECTORY (DEBUG)
         self._blue_trajectory = []
         self._red_trajectory = []
 
@@ -504,11 +510,9 @@ class CapEnv(gym.Env):
         if entity.is_air:
             return True
 
+        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+        loc = np.array(entity.get_loc())
         if self.STOCH_ATTACK:
-            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-            loc = np.array(entity.get_loc())
-
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
             friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
 
@@ -544,9 +548,6 @@ class CapEnv(gym.Env):
                     #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
                     return False 
         else:
-            in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
-
-            loc = np.array(entity.get_loc())
             # Check if agent is in enemy's territory
             if self._static_map[tuple(loc)] == entity.team:
                 return True
@@ -937,7 +938,7 @@ class Board(spaces.Space):
 
     def sample(self):
         map_obj = [NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY]
-        state, _, _ = CreateMap.gen_map('map',
+        state, _, _ = gen_random_map('map',
                 self.shape[0], rand_zones=False, map_obj=map_obj)
         return state
 
