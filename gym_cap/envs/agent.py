@@ -38,10 +38,14 @@ class Agent:
         self.channel = CHANNEL[unit_type]
         self.repr = REPRESENT[unit_type]
 
+        # Movement and Interaction
         self.delay_count = 0
         self.delay = 0
         self.advantage = 1
         self.advantage_while_moving = 0
+
+        ## Special Features
+        self.clocking = False  # Hide with the move 0
 
     def move(self, action, env, static_map):
         """
@@ -201,9 +205,9 @@ class Agent:
             if not com_distance == -1:
                 if math.hypot(loc[0] - x, loc[1] - y) < com_distance:
                     continue
-            if not com_air and agent.air:
+            if not com_air and agent.is_air:
                 continue
-            elif com_air and agent.air:
+            elif com_air and agent.is_air:
                 for i in range(-agent.range, agent.range + 1):
                     for j in range(-agent.range, agent.range + 1):
                         locx, locy = i + loc[0], j + loc[1]
@@ -223,9 +227,9 @@ class Agent:
                             if com_frequency is not None and np.random.random() > com_frequency:
                                 obs[coordx][coordy] = UNKNOWN
 
-            elif not com_ground and not agent.air:
+            elif not com_ground and not agent.is_air:
                 continue
-            elif com_ground and not agent.air:
+            elif com_ground and not agent.is_air:
                 for i in range(-agent.range, agent.range + 1):
                     for j in range(-agent.range, agent.range + 1):
                         locx, locy = i + loc[0], j + loc[1]
@@ -318,7 +322,7 @@ class GroundVehicle_Tank(Agent):
 
 class GroundVehicle_Scout(Agent):
     """This is a child class for tank agents. Inherited from Agent class.
-    It creates an instance of UGV2 in specific location"""
+    It creates an instance of UGV3 in specific location"""
 
     def __init__(self, loc, map_only, team_number, unit_type):
         """
@@ -336,6 +340,8 @@ class GroundVehicle_Scout(Agent):
         self.a_range = UGV3_A_RANGE
         self.advantage = UGV3_ADVANTAGE
         self.advantage_while_moving = UGV3_ADVANTAGE_WHILE_MOVING
+
+        self.clocking = True
 
 class CivilAgent(GroundVehicle):
     """This is a child class for civil agents. Inherited from UGV class.
