@@ -48,6 +48,7 @@ class Agent:
         self.advantage_while_moving = 0
 
         ## Special Features
+        self.visible = True
         self.clocking = False  # Hide with the move 0
 
     def move(self, action, env, static_map):
@@ -82,29 +83,48 @@ class Agent:
 
         channel = self.channel
         icon = self.repr
-        collision_channels = set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level])
+        collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level]))
         
         if action == "X":
-            pass
+            if self.clocking:
+                self.visible = False
+                self.marker = (255,255,255)
+            return
         
         elif action in ["N", "S", "E", "W"]:
-            new_coord = {"N": [self.x, self.y - self.step],
-                         "S": [self.x, self.y + self.step],
-                         "E": [self.x + self.step, self.y],
-                         "W": [self.x - self.step, self.y]}
-            nx, ny = new_coord[action]
+            if self.clocking:
+                self.visible = True
+                self.marker = None
+            #new_coord = {"N": [self.x, self.y - self.step],
+            #             "S": [self.x, self.y + self.step],
+            #             "E": [self.x + self.step, self.y],
+            #             "W": [self.x - self.step, self.y]}
+            dstep = {"N": [0 ,-1],
+                     "S": [0 , 1],
+                     "E": [1 , 0],
+                     "W": [-1, 0]}[action]
 
-            # Out of bound 
             length, width = static_map.shape
-            if nx < 0: nx = 0
-            if ny < 0: ny = 0
-            if nx >= length: nx = length-1
-            if ny >= width: ny = width-1
+            px, py = self.x, self.y
+            nx, ny = px, py
+            for s in range(self.step):
+                px += dstep[0] 
+                py += dstep[1]
+
+                if px < 0 or px >= length: break
+                if py < 0 or py >= width: break
+                collide = False
+                for ch in collision_channels:
+                    if env[px, py, ch] != 0:
+                        collide = True
+                        break
+                if collide:
+                    break
+
+                nx, ny = px, py
 
             # Not able to move
             if self.x == nx and self.y == ny: return
-            for ch in collision_channels:
-                if env[nx, ny, ch] != 0: return
 
             # Make a movement
             env[self.x, self.y, channel] = 0
@@ -257,6 +277,10 @@ class Agent:
     @property
     def is_air(self):
         return self.level=='air'
+
+    @property
+    def is_visible(self):
+        return self.visible
 
     @property
     def get_advantage(self):

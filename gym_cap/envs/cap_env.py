@@ -177,16 +177,17 @@ class CapEnv(gym.Env):
 
             self._env, self._static_map, agent_locs = gen_random_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
-        elif type(custom_board) is str:
-            custom_map = np.loadtxt(custom_board, dtype = int, delimiter = " ")
-            self._env, self._static_map, map_obj, agent_locs = custom_map(custom_map)
+        else:
+            if type(custom_board) is str:
+                board = np.loadtxt(custom_board, dtype = int, delimiter = " ")
+            elif type(custom_board) is np.ndarray:
+                board = custom_board
+            else:
+                raise AttributeError("Provided board must be either path(str) or matrix(np array).")
+            self._env, self._static_map, map_obj, agent_locs = custom_map(board)
             self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
             self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
-        elif type(custom_board) is np.ndarray:
-            custom_map = custom_board
-            self._env, self._static_map, map_obj, agent_locs = custom_map(custom_map)
-            self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
-            self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
+
         self.map_size = tuple(self._static_map.shape)
 
         # INITIALIZE TEAM
@@ -260,6 +261,12 @@ class CapEnv(gym.Env):
                 elif element == TEAM1_UGV2:
                     cur_ent = GroundVehicle_Tank(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV2)
                     team_blue.append(cur_ent)
+                elif element == TEAM1_UGV3:
+                    cur_ent = GroundVehicle_Scout(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV3)
+                    team_blue.append(cur_ent)
+                elif element == TEAM1_UGV4:
+                    cur_ent = GroundVehicle_Clocking(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV4)
+                    team_blue.append(cur_ent)
                 elif element == TEAM1_UAV:
                     cur_ent = AerialVehicle(coord, static_map, TEAM1_BACKGROUND, TEAM1_UAV)
                     team_blue.insert(0, cur_ent)
@@ -268,6 +275,12 @@ class CapEnv(gym.Env):
                     team_red.append(cur_ent)
                 elif element == TEAM2_UGV2:
                     cur_ent = GroundVehicle_Tank(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV2)
+                    team_red.append(cur_ent)
+                elif element == TEAM2_UGV3:
+                    cur_ent = GroundVehicle_Scout(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV3)
+                    team_red.append(cur_ent)
+                elif element == TEAM2_UGV4:
+                    cur_ent = GroundVehicle_Clocking(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV4)
                     team_red.append(cur_ent)
                 elif element == TEAM2_UAV:
                     cur_ent = AerialVehicle(coord, static_map, TEAM2_BACKGROUND, TEAM2_UAV)
@@ -346,11 +359,11 @@ class CapEnv(gym.Env):
             assert entities_action is not None, 'Under CONTROL_ALL setting, action must be specified'
             assert (type(entities_action) is list) or (type(entities_action) is np.ndarray), \
                     'CONTROLL_ALL setting requires list (or numpy array) type of action'
-            assert len(entities_action) == self.NUM_BLUE+self.NUM_RED+self.NUM_UAV+self.NUM_UAV, \
+            assert len(entities_action) == len(self._team_blue+self._team_red), \
                     'You entered wrong number of moves.'
 
-            move_list_blue = entities_action[:self.NUM_UAV+self.NUM_BLUE+self.NUM_BLUE_UGV2]
-            move_list_red  = entities_action[-self.NUM_UAV-self.NUM_RED-self.NUM_RED_UGV2:]
+            move_list_blue = entities_action[:len(self._team_blue)]
+            move_list_red  = entities_action[-len(self._team_red):]
         else:
             # Get actions from uploaded policies
             move_list_red = []
@@ -371,14 +384,14 @@ class CapEnv(gym.Env):
                     traceback.print_exc()
                     exit()
             elif type(entities_action) is int:
-                if entities_action >= len(self.ACTION) ** (self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2):
-                    sys.exit("ERROR: You entered too many moves. There are " + str(self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2) + " entities.")
-                while len(move_list_blue) < (self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2):
+                if entities_action >= len(self.ACTION) ** len(self._team_blue):
+                    sys.exit("ERROR: You entered too many moves. There are " + str(len(self._team_blue)) + " entities.")
+                while len(move_list_blue) < len(self._team_blue):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
             else:
-                if len(entities_action) != self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2:
-                    sys.exit("ERROR: You entered wrong number of moves. There are " + str(self.NUM_BLUE + self.NUM_UAV + self.NUM_BLUE_UGV2) + " entities.")
+                if len(entities_action) != len(self._team_blue):
+                    sys.exit("ERROR: You entered wrong number of moves. There are " + str(len(self._team_blue)) + " entities.")
                 move_list_blue = entities_action
 
 
@@ -784,7 +797,7 @@ class CapEnv(gym.Env):
                 (locx + tile_w, locy + tile_h),
                 (locx, locy + tile_h)], color=cur_color)
 
-            if entity.is_air:
+            if type(entity) == AerialVehicle:
                 self.viewer.draw_polyline([
                     (locx, locy),
                     (locx + tile_w, locy + tile_h)],
@@ -794,6 +807,24 @@ class CapEnv(gym.Env):
                     (locx, locy + tile_h)],
                     color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
             if type(entity) == GroundVehicle_Tank:
+                self.viewer.draw_polyline([
+                    (locx, locy),
+                    (locx + tile_w//2, locy + tile_h)],
+                    color=(0,0,0), linewidth=3)
+                self.viewer.draw_polyline([
+                    (locx + tile_w//2, locy + tile_h),
+                    (locx + tile_w, locy)],
+                    color=(0,0,0), linewidth=3)
+            if type(entity) == GroundVehicle_Scout:
+                self.viewer.draw_polyline([
+                    (locx, locy),
+                    (locx + tile_w//2, locy + tile_h)],
+                    color=(0,0,0), linewidth=3)
+                self.viewer.draw_polyline([
+                    (locx + tile_w//2, locy + tile_h),
+                    (locx + tile_w, locy)],
+                    color=(0,0,0), linewidth=3)
+            if type(entity) == GroundVehicle_Clocking:
                 self.viewer.draw_polyline([
                     (locx, locy),
                     (locx + tile_w//2, locy + tile_h)],
@@ -863,35 +894,44 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue(self):
-        blue_view = np.copy(self._env)
+        view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
             mask_channel = CHANNEL[UNKNOWN]
             mask_represent = REPRESENT[UNKNOWN]
 
-            blue_view[self._blue_mask, :] = 0
-            blue_view[self._blue_mask, mask_channel] = mask_represent
+            view[self._blue_mask, :] = 0
+            view[self._blue_mask, mask_channel] = mask_represent
 
-        return blue_view
+        for entity in self._team_red:
+            if not entity.is_visible:
+                view[entity.get_loc(),entity.channel] = 0
+
+        return view
 
     @property
     def get_obs_red(self):
-        red_view = np.copy(self._env)
+        view = np.copy(self._env)
 
         if self.RED_PARTIAL:
             mask_represent = REPRESENT[UNKNOWN]
             mask_channel = CHANNEL[UNKNOWN]
 
-            red_view[self._red_mask, :] = 0
-            red_view[self._red_mask, mask_channel] = mask_represent
+            view[self._red_mask, :] = 0
+            view[self._red_mask, mask_channel] = mask_represent
+
+        for entity in self._team_blue:
+            if entity.is_visible:
+                view[entity.get_loc(),entity.channel] = 0
 
         # Change red's perspective same as blue
-        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG], CHANNEL[TEAM1_UGV2]]
+        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
+                CHANNEL[TEAM1_UGV2], CHANNEL[TEAM1_UGV3], CHANNEL[TEAM1_UGV4]]
 
         for ch in swap:
-            red_view[:,:,ch] *= -1
+            view[:,:,ch] *= -1
 
-        return red_view
+        return view
 
     @property
     def get_obs_blue_render(self):
@@ -937,7 +977,7 @@ class Board(spaces.Space):
         return "Board" + str(self.shape)
 
     def sample(self):
-        map_obj = [NUM_BLUE, NUM_UAV, NUM_RED, NUM_UAV, NUM_GRAY]
+        map_obj = [NUM_BLUE, NUM_BLUE_UAV, NUM_RED, NUM_RED_UAV, NUM_GRAY]
         state, _, _ = gen_random_map('map',
                 self.shape[0], rand_zones=False, map_obj=map_obj)
         return state
