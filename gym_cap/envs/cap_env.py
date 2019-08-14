@@ -252,39 +252,28 @@ class CapEnv(gym.Env):
         team_blue = []
         team_red = []
 
+        Class = {
+            TEAM1_UAV : (AerialVehicle, TEAM1_BACKGROUND),
+            TEAM2_UAV : (AerialVehicle, TEAM2_BACKGROUND),
+            TEAM1_UGV : (GroundVehicle, TEAM1_BACKGROUND),
+            TEAM2_UGV : (GroundVehicle, TEAM2_BACKGROUND),
+            TEAM1_UGV2: (GroundVehicle_Tank, TEAM1_BACKGROUND),
+            TEAM2_UGV2: (GroundVehicle_Tank, TEAM2_BACKGROUND),
+            TEAM1_UGV3: (GroundVehicle_Scout, TEAM1_BACKGROUND),
+            TEAM2_UGV3: (GroundVehicle_Scout, TEAM2_BACKGROUND),
+            TEAM1_UGV4: (GroundVehicle_Clocking, TEAM1_BACKGROUND),
+            TEAM2_UGV4: (GroundVehicle_Clocking, TEAM2_BACKGROUND),
+         }
+
         for element, coords in agent_coords.items():
             if coords is None: continue
             for coord in coords:
-                if element == TEAM1_UGV:
-                    cur_ent = GroundVehicle(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV)
+                Vehicle, team_id = Class[element]
+                cur_ent = Vehicle(coord, static_map, team_id, element)
+                if team_id == TEAM1_BACKGROUND:
                     team_blue.append(cur_ent)
-                elif element == TEAM1_UGV2:
-                    cur_ent = GroundVehicle_Tank(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV2)
-                    team_blue.append(cur_ent)
-                elif element == TEAM1_UGV3:
-                    cur_ent = GroundVehicle_Scout(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV3)
-                    team_blue.append(cur_ent)
-                elif element == TEAM1_UGV4:
-                    cur_ent = GroundVehicle_Clocking(coord, static_map, TEAM1_BACKGROUND, TEAM1_UGV4)
-                    team_blue.append(cur_ent)
-                elif element == TEAM1_UAV:
-                    cur_ent = AerialVehicle(coord, static_map, TEAM1_BACKGROUND, TEAM1_UAV)
-                    team_blue.insert(0, cur_ent)
-                elif element == TEAM2_UGV:
-                    cur_ent = GroundVehicle(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV)
+                elif team_id == TEAM2_BACKGROUND:
                     team_red.append(cur_ent)
-                elif element == TEAM2_UGV2:
-                    cur_ent = GroundVehicle_Tank(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV2)
-                    team_red.append(cur_ent)
-                elif element == TEAM2_UGV3:
-                    cur_ent = GroundVehicle_Scout(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV3)
-                    team_red.append(cur_ent)
-                elif element == TEAM2_UGV4:
-                    cur_ent = GroundVehicle_Clocking(coord, static_map, TEAM2_BACKGROUND, TEAM2_UGV4)
-                    team_red.append(cur_ent)
-                elif element == TEAM2_UAV:
-                    cur_ent = AerialVehicle(coord, static_map, TEAM2_BACKGROUND, TEAM2_UAV)
-                    team_red.insert(0, cur_ent)
 
         return team_blue, team_red
 
