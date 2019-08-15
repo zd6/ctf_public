@@ -34,8 +34,8 @@ NUM_RED_UGV3 = 0
 UGV3_STEP = 3
 UGV3_DELAY = 0
 UGV3_RANGE = 3
-UGV3_A_RANGE = 0
-UGV3_ADVANTAGE = 0
+UGV3_A_RANGE = 2
+UGV3_ADVANTAGE = 1
 UGV3_ADVANTAGE_WHILE_MOVING = 0
 
 NUM_BLUE_UGV4 = 0
@@ -130,12 +130,12 @@ CHANNEL = {
         TEAM2_UGV: 4,
         TEAM1_UAV: 5,
         TEAM2_UAV: 5,
-        TEAM1_UGV2: 6,
-        TEAM2_UGV2: 6,
-        TEAM1_UGV3: 6,
-        TEAM2_UGV3: 6,
-        TEAM1_UGV4: 6,
-        TEAM2_UGV4: 6,
+        TEAM1_UGV2: 4,
+        TEAM2_UGV2: 4,
+        TEAM1_UGV3: 4,
+        TEAM2_UGV3: 4,
+        TEAM1_UGV4: 4,
+        TEAM2_UGV4: 4,
    }
 
 # Represented constant

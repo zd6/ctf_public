@@ -66,6 +66,11 @@ class Agent:
         static_map   : list
             easily place the correct home tiles
         """
+        
+        if self.team == TEAM1_BACKGROUND:
+            enemy_flag = TEAM2_FLAG 
+        else:
+            enemy_flag = TEAM1_FLAG
 
         # If agent is dead, dont move
         if not self.isAlive:
@@ -113,6 +118,8 @@ class Agent:
 
                 if px < 0 or px >= length: break
                 if py < 0 or py >= width: break
+                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]:
+                    break
                 collide = False
                 for ch in collision_channels:
                     if env[px, py, ch] != 0:
