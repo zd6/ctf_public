@@ -118,8 +118,6 @@ class Agent:
 
                 if px < 0 or px >= length: break
                 if py < 0 or py >= width: break
-                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]:
-                    break
                 collide = False
                 for ch in collision_channels:
                     if env[px, py, ch] != 0:
@@ -129,6 +127,8 @@ class Agent:
                     break
 
                 nx, ny = px, py
+                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]:
+                    break
 
             # Not able to move
             if self.x == nx and self.y == ny: return
