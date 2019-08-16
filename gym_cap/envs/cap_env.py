@@ -611,6 +611,10 @@ class CapEnv(gym.Env):
         """
 
         assert mode in ['dense', 'flag', 'combat', 'defense', 'capture']
+        red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
+        blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
+        red_total = len([entity for entity in self._team_red if not entity.is_air])
+        blue_total = len([entity for entity in self._team_blue if not entity.is_air])
 
         if mode == 'dense':
             # Dead enemy team gives .5/total units for each dead unit
@@ -620,10 +624,6 @@ class CapEnv(gym.Env):
             if self.blue_win:
                 return 100
             reward = 0
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
-            blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
-            red_total = len([entity for entity in self._team_red if not entity.is_air])
-            blue_total = len([entity for entity in self._team_blue if not entity.is_air])
             if self.mode != 'sandbox':
                 reward += 50.0 * (red_total - red_alive) / red_total
             reward -= (50.0 * (blue_total - blue_alive) / blue_total)
@@ -636,8 +636,7 @@ class CapEnv(gym.Env):
                 return -100
         elif mode == 'combat':
             # Aggressive combat game. Elliminate enemy to win
-            red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
-            return 100 * red_alive / self.NUM_RED
+            return 100 * red_alive / red_total
         elif mode == 'defense':
             # Lose reward if flag is lost.
             if self.blue_flag_captured:
