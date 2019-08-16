@@ -111,51 +111,35 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
     red_flag_coord, red_coord = red_coord[:num_flag], red_coord[num_flag:]
     flag[red_flag_coord[:,0], red_flag_coord[:,1]] = -1
     static_map[red_flag_coord[:,0], red_flag_coord[:,1]] = TEAM2_FLAG
+
+    # Build New Map
+    temp = np.zeros_like(mask)
+    new_map = np.zeros([dim, dim, NUM_CHANNEL], dtype=int)
+    new_map[:,:,0] = mask
+    new_map[:,:,1] = zone
+    new_map[:,:,2] = flag
+    new_map[:,:,3] = obst
     
     ## Agents
     agent_locs = {}
 
-    # CH 4 : UGV
-    ugv = np.zeros([dim, dim], dtype=int)
-
-    nb, nr = map_obj[(TEAM1_UGV, TEAM2_UGV)]
-
-    coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
-    ugv[coord[:,0], coord[:,1]] = REPRESENT[TEAM1_UGV]
-    agent_locs[TEAM1_UGV] = coord.tolist()
-
-    coord, red_coord = red_coord[:nr], red_coord[nr:]
-    ugv[coord[:,0], coord[:,1]] = REPRESENT[TEAM2_UGV]
-    agent_locs[TEAM2_UGV] = coord.tolist()
-    
-    # CH 5 : UAV
-    uav = np.zeros([dim, dim], dtype=int)
-
-    nb, nr = map_obj[(TEAM1_UAV, TEAM2_UAV)]
-
-    coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
-    uav[coord[:,0], coord[:,1]] = REPRESENT[TEAM1_UAV]
-    agent_locs[TEAM1_UAV] = coord.tolist()
-
-    coord, red_coord = red_coord[:nr], red_coord[nr:]
-    uav[coord[:,0], coord[:,1]] = REPRESENT[TEAM2_UAV]
-    agent_locs[TEAM2_UAV] = coord.tolist()
-
-    # CH 6 : UGVs
-    ugvs = np.zeros([dim, dim], dtype=int)
-
-    keys = [(TEAM1_UGV2, TEAM2_UGV2), (TEAM1_UGV3, TEAM2_UGV3), (TEAM1_UGV4, TEAM2_UGV4)]
+    keys = [(TEAM1_UAV, TEAM2_UAV),
+            (TEAM1_UGV, TEAM2_UGV),
+            (TEAM1_UGV2, TEAM2_UGV2),
+            (TEAM1_UGV3, TEAM2_UGV3),
+            (TEAM1_UGV4, TEAM2_UGV4)]
     for k in keys:
         nb, nr = map_obj[k]
+        
+        channel = CHANNEL[k[0]]
         coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
-        ugvs[coord[:,0], coord[:,1]] = REPRESENT[k[0]]
+        new_map[coord[:,0], coord[:,1], channel] = REPRESENT[k[0]]
         agent_locs[k[0]] = coord.tolist()
 
+        channel = CHANNEL[k[1]]
         coord, red_coord = red_coord[:nr], red_coord[nr:]
-        ugvs[coord[:,0], coord[:,1]] = REPRESENT[k[1]]
+        new_map[coord[:,0], coord[:,1], channel] = REPRESENT[k[1]]
         agent_locs[k[1]] = coord.tolist()
-
-    new_map = np.stack([mask, zone, flag, obst, ugv, uav, ugvs], axis=-1)
 
     return new_map, static_map, agent_locs
 
