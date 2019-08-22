@@ -916,8 +916,8 @@ class CapEnv(gym.Env):
                 view[entity.get_loc(),entity.channel] = 0
 
         # Change red's perspective same as blue
-        swap = [CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
-                CHANNEL[TEAM1_UGV2], CHANNEL[TEAM1_UGV3], CHANNEL[TEAM1_UGV4]]
+        swap = set([CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
+                CHANNEL[TEAM1_UGV2], CHANNEL[TEAM1_UGV3], CHANNEL[TEAM1_UGV4]])
 
         for ch in swap:
             view[:,:,ch] *= -1

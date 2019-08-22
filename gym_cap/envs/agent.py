@@ -93,17 +93,13 @@ class Agent:
         if action == "X":
             if self.clocking:
                 self.visible = False
-                self.marker = (255,255,255)
+                self.marker = (255,255,255) # If agent is hidden, mark with white 
             return
         
         elif action in ["N", "S", "E", "W"]:
             if self.clocking:
                 self.visible = True
                 self.marker = None
-            #new_coord = {"N": [self.x, self.y - self.step],
-            #             "S": [self.x, self.y + self.step],
-            #             "E": [self.x + self.step, self.y],
-            #             "W": [self.x - self.step, self.y]}
             dstep = {"N": [0 ,-1],
                      "S": [0 , 1],
                      "E": [1 , 0],
@@ -127,7 +123,8 @@ class Agent:
                     break
 
                 nx, ny = px, py
-                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]:
+                # Interact with flag
+                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]: 
                     break
 
             # Not able to move
