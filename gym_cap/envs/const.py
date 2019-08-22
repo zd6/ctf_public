@@ -130,12 +130,12 @@ CHANNEL = {
         TEAM2_UGV: 4,
         TEAM1_UAV: 5,
         TEAM2_UAV: 5,
-        TEAM1_UGV2: 4,
-        TEAM2_UGV2: 4,
-        TEAM1_UGV3: 4,
-        TEAM2_UGV3: 4,
-        TEAM1_UGV4: 4,
-        TEAM2_UGV4: 4,
+        TEAM1_UGV2: 6,
+        TEAM2_UGV2: 6,
+        TEAM1_UGV3: 6,
+        TEAM2_UGV3: 6,
+        TEAM1_UGV4: 6,
+        TEAM2_UGV4: 6,
    }
 
 # Represented constant
