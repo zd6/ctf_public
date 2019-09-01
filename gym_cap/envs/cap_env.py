@@ -625,8 +625,8 @@ class CapEnv(gym.Env):
                 return 100
             reward = 0
             if self.mode != 'sandbox':
-                reward += 50.0 * (red_total - red_alive) / red_total
-            reward -= (50.0 * (blue_total - blue_alive) / blue_total)
+                reward += 100.0 * (red_total - red_alive) / red_total
+            reward -= (100.0 * (blue_total - blue_alive) / blue_total)
             return reward
         elif mode == 'flag':
             # Flag game reward
