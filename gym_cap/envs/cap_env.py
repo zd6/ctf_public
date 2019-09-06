@@ -92,7 +92,7 @@ class CapEnv(gym.Env):
                         'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
                         'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
                         ],
-                'control': ['CONTROL_ALL'],
+                'control': ['CONTROL_ALL', 'RED_STEP', 'RED_DELAY', 'BLUE_ADV_BIAS', 'RED_ADV_BIAS'],
                 'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
                 'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
                 'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS', 'STOCH_TRANSITIONS_MOD',
@@ -103,7 +103,7 @@ class CapEnv(gym.Env):
                         int, int,
                         int, int,
                         int, int],
-                'control': [bool],
+                'control': [bool, int, int, int, int],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
@@ -324,7 +324,6 @@ class CapEnv(gym.Env):
         # TODO need to be added observation for grey team
         # self.observation_space_grey = np.full_like(self._env, -1)
 
-
     def step(self, entities_action=None, cur_suggestions=None):
         """
         Takes one step in the capture the flag game
@@ -345,6 +344,7 @@ class CapEnv(gym.Env):
         indiv_action_space = len(self.ACTION)
 
         if self.CONTROL_ALL:
+            assert self.RED_STEP == 1
             assert entities_action is not None, 'Under CONTROL_ALL setting, action must be specified'
             assert (type(entities_action) is list) or (type(entities_action) is np.ndarray), \
                     'CONTROLL_ALL setting requires list (or numpy array) type of action'
@@ -354,16 +354,6 @@ class CapEnv(gym.Env):
             move_list_blue = entities_action[:len(self._team_blue)]
             move_list_red  = entities_action[-len(self._team_red):]
         else:
-            # Get actions from uploaded policies
-            move_list_red = []
-            if self.mode != "sandbox":
-                try:
-                    move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
-                except Exception as e:
-                    print("No valid policy for red team", e)
-                    traceback.print_exc()
-                    exit()
-
             move_list_blue = []
             if entities_action is None:
                 try:
@@ -396,18 +386,36 @@ class CapEnv(gym.Env):
             positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
         self._blue_trajectory.append(positions)
 
-        # Move team2
-        positions = []
-        for idx, act in enumerate(move_list_red):
-            if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
-                if self._policy_red is not None and not self._policy_red._random_transition_safe:
-                    act = 0
-                else:
-                    act = self._stoch_transition(self._team_red[idx].get_loc())
-            self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
-            positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
-        self._red_trajectory.append(positions)
 
+        # Move team2
+        move_list_red = []
+        if self.mode != "sandbox" and self.run_step % self.RED_DELAY == 0:
+            for _ in range(self.RED_STEP):
+                try:
+                    move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
+                except Exception as e:
+                    print("No valid policy for red team", e)
+                    traceback.print_exc()
+                    exit()
+
+                positions = []
+                for idx, act in enumerate(move_list_red):
+                    if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
+                        if self._policy_red is not None and not self._policy_red._random_transition_safe:
+                            act = 0
+                        else:
+                            act = self._stoch_transition(self._team_red[idx].get_loc())
+                    self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
+                    positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
+                self._red_trajectory.append(positions)
+
+                finish_move=False
+                for i in self._team_red:
+                    if i.isAlive and not i.is_air:
+                        locx, locy = i.get_loc()
+                        if self._static_map[locx][locy] == TEAM1_FLAG:
+                            finish_move=True
+                if finish_move: break
         self._create_observation_mask()
         
         # Update individual's memory
@@ -545,6 +553,14 @@ class CapEnv(gym.Env):
                     n_friends += self.STOCH_ATTACK_BIAS
                 else:
                     n_enemies += self.STOCH_ATTACK_BIAS
+
+                # Adavantage bias based on team
+                if entity.team == TEAM1_BACKGROUND:
+                    n_friends += self.BLUE_ADV_BIAS
+                    n_enemies += self.RED_ADV_BIAS
+                else:
+                    n_friends += self.RED_ADV_BIAS
+                    n_enemies += self.BLUE_ADV_BIAS
 
                 if self.np_random.rand() > n_friends/(n_friends + n_enemies):
                     #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]

@@ -71,7 +71,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
         else:
             zone[:,0:dim//2] = -1
             static_map[:,0:dim//2] = TEAM2_BACKGROUND
-            zone = np.rot90(zone)
+            #zone = np.rot90(zone)
         if 0.5 < np_random.rand():
             zone = -zone  # Reverse
             static_map = -static_map+1  # TODO: not a safe method to reverse static_map

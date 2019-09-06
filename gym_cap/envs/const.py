@@ -67,6 +67,10 @@ RENDER_TEAM_MEMORY = False
 # Control Setting (Experiment)
 CONTROL_ALL = False  # If true, step(action) controls both red and blue
 NP_SEED = None
+RED_STEP = 1
+RED_DELAY = 1
+BLUE_ADV_BIAS = 0
+RED_ADV_BIAS = 0
 
 SUGGESTION = -5
 BLACK = -2
@@ -130,12 +134,12 @@ CHANNEL = {
         TEAM2_UGV: 4,
         TEAM1_UAV: 5,
         TEAM2_UAV: 5,
-        TEAM1_UGV2: 6,
-        TEAM2_UGV2: 6,
-        TEAM1_UGV3: 6,
-        TEAM2_UGV3: 6,
-        TEAM1_UGV4: 6,
-        TEAM2_UGV4: 6,
+        TEAM1_UGV2: 4,
+        TEAM2_UGV2: 4,
+        TEAM1_UGV3: 4,
+        TEAM2_UGV3: 4,
+        TEAM1_UGV4: 4,
+        TEAM2_UGV4: 4,
    }
 
 # Represented constant
