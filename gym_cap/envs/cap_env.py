@@ -195,18 +195,19 @@ class CapEnv(gym.Env):
 
         self.action_space = spaces.Discrete(len(self.ACTION) ** len(self._team_blue))
         self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
-        if len(self._team_red) == 0:
-            self.mode = "sandbox"
 
         # INITIATE POLICY
         if policy_blue is not None:
             self._policy_blue = policy_blue
-        if policy_red is not None:
-            self._policy_red = policy_red
         if self._policy_blue is not None:
             self._policy_blue.initiate(self._static_map, self._team_blue)
-        if self._policy_red is not None:
-            self._policy_red.initiate(self._static_map, self._team_red)
+        if len(self._team_red) == 0:
+            self.mode = "sandbox"
+        else:
+            if policy_red is not None:
+                self._policy_red = policy_red
+            if self._policy_red is not None:
+                self._policy_red.initiate(self._static_map, self._team_red)
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
