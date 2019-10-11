@@ -871,12 +871,15 @@ class CapEnv(gym.Env):
         Updates the positions of the agents based on the dictionary.
         """
         for i,loc in enumerate(dictionary["Team1"]):
-            self.team_blue[i].x = loc[0]
-            self.team_blue[i].y = loc[1]
-            for i,loc in enumerate(dictionary["Team2"]):
-            self.team_red[i].x = loc[0]
-            self.team_red[i].y = loc[1]
+            self._team_blue[i].x = loc[0]
+            self._team_blue[i].y = loc[1]
+            self._team_blue[i].move("X", self._env, self._static_map)
+        for i,loc in enumerate(dictionary["Team2"]):
+            self._team_red[i].x = loc[0]
+            self._team_red[i].y = loc[1]
+            self._team_red[i].move("X", self._env, self._static_map)
 
+        self._create_observation_mask()
         # Update individual's memory
         for agent in self._team_blue + self._team_red:
             if agent.memory_mode == "fog":
