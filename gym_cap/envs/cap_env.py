@@ -5,7 +5,7 @@ try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
-    
+
 import random
 import sys
 import traceback
@@ -136,18 +136,18 @@ class CapEnv(gym.Env):
 
     def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
             custom_board=None, config_path=None):
-        """ 
+        """
         Resets the game
 
         Parameters
         ----------------
 
-        map_size : [int] 
-        mode : [str] 
-        policy_blue : [policy] 
-        policy_red : [policy] 
-        custom_board : [str, numpy.ndarray] 
-        config_path : [str] 
+        map_size : [int]
+        mode : [str]
+        policy_blue : [policy]
+        policy_red : [policy]
+        custom_board : [str, numpy.ndarray]
+        config_path : [str]
 
         """
 
@@ -280,7 +280,7 @@ class CapEnv(gym.Env):
 
     def _create_observation_mask(self):
         """
-        Creates the mask 
+        Creates the mask
 
         Mask is True(1) for the location where it CANNOT see.
         For full observation setting, mask is zero matrix
@@ -418,12 +418,12 @@ class CapEnv(gym.Env):
                             finish_move=True
                 if finish_move: break
         self._create_observation_mask()
-        
+
         # Update individual's memory
         for agent in self._team_blue + self._team_red:
             if agent.memory_mode == "fog":
                 agent.update_memory(env=self)
-        
+
         # Update team memory
         if self.TEAM_MEMORY == "fog":
             self._update_global_memory(env=self)
@@ -448,7 +448,7 @@ class CapEnv(gym.Env):
                 if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
                     self.red_win = True
                     self.blue_flag_captured = True
-                    
+
         # TODO Change last condition for multi agent model
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
             self.blue_win = True
@@ -462,7 +462,7 @@ class CapEnv(gym.Env):
                 if self._static_map[locx][locy] == TEAM2_FLAG:
                     self.blue_win = True
                     self.red_flag_captured = True
-                    
+
         if not has_alive_entity:
             self.red_win = True
             self.blue_eliminated = True
@@ -480,7 +480,7 @@ class CapEnv(gym.Env):
             }
 
         self.run_step += 1
-        
+
         return self.get_obs_blue, reward, isDone, info
 
     def _stoch_transition(self, loc):
@@ -499,7 +499,7 @@ class CapEnv(gym.Env):
 
     def _interaction(self, entity):
         """
-        Interaction 
+        Interaction
 
         Checks if a unit is dead
         If configuration parameter 'STOCH_ATTACK' is true, the interaction becomes stochastic
@@ -547,7 +547,7 @@ class CapEnv(gym.Env):
                 if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
                     n_friends += friend.get_advantage
 
-            # Interaction 
+            # Interaction
             if n_enemies > 0:
                 # Advantage bias for being in team territory
                 if entity.team == self._static_map[entity.get_loc()]:
@@ -565,7 +565,7 @@ class CapEnv(gym.Env):
 
                 if self.np_random.rand() > n_friends/(n_friends + n_enemies):
                     #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-                    return False 
+                    return False
         else:
             # Check if agent is in enemy's territory
             if self._static_map[tuple(loc)] == entity.team:
@@ -588,11 +588,11 @@ class CapEnv(gym.Env):
 
 
     def _update_global_memory(self, env):
-        """ 
-        team memory map
-        
         """
-        
+        team memory map
+
+        """
+
         l, b = self.blue_memory.shape
         for blue_agent in self._team_blue:
             b_obs = blue_agent.get_obs(env=env)
@@ -600,10 +600,10 @@ class CapEnv(gym.Env):
             leng, breth = leng//2, breth//2
             b_coord_x, b_coord_y = blue_agent.get_loc()
             b_offset_x, b_offset_y = leng - b_coord_x, breth - b_coord_y
-            b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]   
+            b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]
             b_coord = b_obs!= const.UNKNOWN
             self.blue_memory[b_coord] = self._static_map[b_coord]
-             
+
         l, b = self.red_memory.shape
         for red_agent in self._team_red:
             r_obs = red_agent.get_obs(env=env)
@@ -611,10 +611,10 @@ class CapEnv(gym.Env):
             leng, breth = leng//2, breth//2
             r_coord_x, r_coord_y = red_agent.get_loc()
             r_offset_x, r_offset_y = leng - r_coord_x, breth - r_coord_y
-            r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]   
+            r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]
             r_coord = r_obs!= const.UNKNOWN
             self.red_memory[r_coord] = self._static_map[r_coord]
-        
+
         return
 
     def _create_reward(self, mode='dense'):
@@ -684,7 +684,7 @@ class CapEnv(gym.Env):
                 from gym.envs.classic_control import rendering
                 self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
                 self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
-    
+
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
             self._env_render(self._static_map,
@@ -716,7 +716,7 @@ class CapEnv(gym.Env):
                     if red_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
                         self._env_render(red_agent.memory,
                                          [900+num_red*SCREEN_H//4, 7+1.49*SCREEN_H//2], [SCREEN_H//4-10, SCREEN_H//4-10])
-    
+
                 else:
                     red_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if red_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
@@ -727,20 +727,20 @@ class CapEnv(gym.Env):
                 # blue team memory rendering
                 self._env_render(self.blue_memory,
                                  [7+2.98*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-                # red team memory rendering    
+                # red team memory rendering
                 self._env_render(self.red_memory,
                                  [7+2.98*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
         else:
             SCREEN_W = 600
             SCREEN_H = 600
-                
+
             if self.viewer is None:
                 from gym.envs.classic_control import rendering
                 self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
                 self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
 
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
-            
+
             self._env_render(self._static_map,
                             [5, 10], [SCREEN_W//2-10, SCREEN_H//2-10])
             self._env_render(self.get_obs_blue_render,
@@ -866,6 +866,81 @@ class CapEnv(gym.Env):
             board[loc] = entity.unit_type
         return board
 
+    def update(self,dictionary):
+        """Takes an input dictionary of the different agents locations in the real world.
+        Updates the positions of the agents based on the dictionary.
+        """
+        for i,loc in enumerate(dictionary["Team1"]):
+            self.team_blue[i].x = loc[0]
+            self.team_blue[i].y = loc[1]
+            for i,loc in enumerate(dictionary["Team2"]):
+            self.team_red[i].x = loc[0]
+            self.team_red[i].y = loc[1]
+
+        # Update individual's memory
+        for agent in self._team_blue + self._team_red:
+            if agent.memory_mode == "fog":
+                agent.update_memory(env=self)
+
+        # Update team memory
+        if self.TEAM_MEMORY == "fog":
+            self._update_global_memory(env=self)
+
+
+        # Run interaction
+        survive_list = []
+        for entity in self._team_blue + self._team_red:
+            if not entity.isAlive:
+                survive_list.append(False)
+            else:
+                survive_list.append(self._interaction(entity))
+        for status, entity in zip(survive_list, self._team_blue+self._team_red):
+            entity.isAlive = status
+
+        # Check win and lose conditions
+        has_alive_entity = False
+        for i in self._team_red:
+            if i.isAlive and not i.is_air:
+                has_alive_entity = True
+                locx, locy = i.get_loc()
+                if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
+                    self.red_win = True
+                    self.blue_flag_captured = True
+
+        # TODO Change last condition for multi agent model
+        if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
+            self.blue_win = True
+            self.red_eliminated = True
+
+        has_alive_entity = False
+        for i in self._team_blue:
+            if i.isAlive and not i.is_air:
+                has_alive_entity = True
+                locx, locy = i.get_loc()
+                if self._static_map[locx][locy] == TEAM2_FLAG:
+                    self.blue_win = True
+                    self.red_flag_captured = True
+
+        if not has_alive_entity:
+            self.red_win = True
+            self.blue_eliminated = True
+
+        # Calculate Reward
+        reward = self._create_reward()
+
+        isDone = self.red_win or self.blue_win
+
+        # Pass internal info
+        info = {
+                'blue_trajectory': self._blue_trajectory,
+                'red_trajectory': self._red_trajectory,
+                'static_map': self._static_map
+            }
+
+        self.run_step += 1
+
+        return self.get_obs_blue, reward, isDone, info
+
     @property
     def get_full_state(self, mask=None):
         return self._env_flat()
@@ -989,4 +1064,3 @@ class Board(spaces.Space):
         state, _, _ = gen_random_map('map',
                 self.shape[0], rand_zones=False, map_obj=map_obj)
         return state
-
