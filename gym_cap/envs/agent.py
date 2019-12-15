@@ -34,7 +34,7 @@ class Agent:
         self.memory = np.empty_like(static_map)
         self.memory_mode = "None"
         #self.ai = EnemyAI(static_map)
-        
+
         self.marker = None
 
         self.unit_type = unit_type
@@ -66,9 +66,9 @@ class Agent:
         static_map   : list
             easily place the correct home tiles
         """
-        
+
         if self.team == TEAM1_BACKGROUND:
-            enemy_flag = TEAM2_FLAG 
+            enemy_flag = TEAM2_FLAG
         else:
             enemy_flag = TEAM1_FLAG
 
@@ -81,7 +81,7 @@ class Agent:
             return
 
         if self.delay_count < self.delay:
-            self.delay_count += 1 
+            self.delay_count += 1
             return
         else:
             self.delay_count = 0
@@ -89,13 +89,13 @@ class Agent:
         channel = self.channel
         icon = self.repr
         collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level]))
-        
+
         if action == "X":
             if self.clocking:
                 self.visible = False
-                self.marker = (255,255,255) # If agent is hidden, mark with white 
+                self.marker = (255,255,255) # If agent is hidden, mark with white
             return
-        
+
         elif action in ["N", "S", "E", "W"]:
             if self.clocking:
                 self.visible = True
@@ -109,7 +109,7 @@ class Agent:
             px, py = self.x, self.y
             nx, ny = px, py
             for s in range(self.step):
-                px += dstep[0] 
+                px += dstep[0]
                 py += dstep[1]
 
                 if px < 0 or px >= length: break
@@ -124,7 +124,7 @@ class Agent:
 
                 nx, ny = px, py
                 # Interact with flag
-                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]: 
+                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]:
                     break
 
             # Not able to move
@@ -136,25 +136,40 @@ class Agent:
             self.x, self.y = nx, ny
         else:
             print("error: wrong action selected")
-    
+
+    def move_abs(self,loc,env,static_map):
+        # If agent is dead, dont move
+        if not self.isAlive:
+            dead_channel = CHANNEL[DEAD]
+            if env[self.x][self.y][dead_channel] == REPRESENT[DEAD]:
+                env[self.x][self.y][dead_channel] = 0
+            env[self.x][self.y][self.channel] = 0
+            return
+
+        # Make a movement
+        env[self.x, self.y, self.channel] = 0
+        env[loc[0], loc[1], self.channel] = self.repr
+        self.x, self.y = loc[0], loc[1]
+
+
     def update_memory(self, env):
         """
         saves/updates individual map of an agent
 
         """
-        
+
         obs = self.get_obs(env=env)
         leng, breth = obs.shape
         leng, breth = leng//2, breth//2
         l, b = self.memory.shape
         loc_x, loc_y = self.get_loc()
         offset_x, offset_y = leng - loc_x, breth - loc_y
-        obs = obs[offset_x: offset_x + l, offset_y: offset_y + b]    
+        obs = obs[offset_x: offset_x + l, offset_y: offset_y + b]
         coord = obs != UNKNOWN
         self.memory[coord] = env.team_home[coord]
 
         return
-    
+
     def individual_reward(self, env):
         """
         Generates reward for individual
