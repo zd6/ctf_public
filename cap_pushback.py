@@ -41,7 +41,7 @@ try:
                 "T2/R2":[10,2],
                 "T2/R3":[10,3],
                 "T2/R4":[10,4],}
-            observation, reward, done, info = env.update_step(locs)  # feedback from environment
+            observation, reward, done, alive, info = env.update_step(locs)  # feedback from environment
             env.render()
             input()
             locs = {
@@ -49,12 +49,12 @@ try:
                 "T1/R2":[1,3],
                 "T1/R3":[1,5],
                 "T1/R4":[1,7],
-                "T2/R1":[10,1],
-                "T2/R2":[10,3],
-                "T2/R3":[10,5],
-                "T2/R4":[10,7],}
-            observation, reward, done, info = env.update_step(locs)  # feedback from environment
-
+                "T2/R1":[2,1],
+                "T2/R2":[2,3],
+                "T2/R3":[2,5],
+                "T2/R4":[2,7],}
+            observation, reward, done, alive, info = env.update_step(locs)  # feedback from environment
+            print(alive)
             # render and sleep are not needed for score analysis
             env.render()
             input()
