@@ -598,7 +598,7 @@ class CapEnv(gym.Env):
         for idx,i in enumerate(self._team_red):
             alive[self.agent_list[idx+len(self._team_blue)]] = i.isAlive
 
-        return self.get_obs_blue, self.get_obs_red reward, isDone, alive, info
+        return self.get_obs_blue, self.get_obs_red, reward, isDone, alive, info
 
     def _stoch_transition(self, loc):
         if self.STOCH_TRANSITIONS_MOD == 'random':
