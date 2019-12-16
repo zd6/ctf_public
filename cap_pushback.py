@@ -16,7 +16,9 @@ rscore = []
 # reset the environment and select the policies for each of the team
 observation = env.reset(map_size=20,
                         policy_blue=policy.Defense(),
-                        policy_red=policy.Random())
+                        policy_red=policy.Random(),)
+                        # config_path=ENV_SETTING_PATH,
+                        # custom_board=test.txt)
 
 try:
     while True:
