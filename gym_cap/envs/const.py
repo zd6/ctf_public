@@ -8,9 +8,9 @@ NUM_RED = 4
 NUM_BLUE_UAV = 0
 NUM_RED_UAV = 0
 NUM_GRAY = 0
-UAV_STEP = 3
+UAV_STEP = 2
 UGV_STEP = 1
-UAV_RANGE = 4
+UAV_RANGE = 3
 UGV_RANGE = 3
 UAV_A_RANGE = 0
 UGV_A_RANGE = 2
@@ -43,6 +43,7 @@ NUM_RED_UGV4 = 0
 
 # Game Default Setting
 RL_SUGGESTIONS = False
+MAX_STEP = 150
 STOCH_TRANSITIONS = False
 STOCH_TRANSITIONS_EPS = 0.1
 STOCH_TRANSITIONS_MOD = 'random' # ['random', 'fix', 'drift1']
@@ -73,6 +74,7 @@ BLUE_ADV_BIAS = 0
 RED_ADV_BIAS = 0
 
 SUGGESTION = -5
+FOG = -3
 BLACK = -2
 UNKNOWN = -1
 TEAM1_BACKGROUND = 0
@@ -121,9 +123,10 @@ COLOR_DICT = {
         TEAM2_UGV4 : (240,0,0),
     }
 
-NUM_CHANNEL = 7
+NUM_CHANNEL = 6
 CHANNEL = {
         UNKNOWN: 0,
+        FOG: 0,
         DEAD: 0,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: 1,
@@ -146,6 +149,7 @@ CHANNEL = {
 REPRESENT = {
         UNKNOWN: 1,
         DEAD: 0,
+        FOG: -1,
         OBSTACLE: 1,
         TEAM1_BACKGROUND: 1,
         TEAM2_BACKGROUND: -1,

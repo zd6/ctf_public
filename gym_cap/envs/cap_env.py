@@ -26,7 +26,7 @@ Requires that all units initially exist in home zone.
 
 class CapEnv(gym.Env):
     metadata = {
-        "render.modes": ["fast", "human", 'rgb_array'],
+        "render.modes": ["fast", "human", 'rgb_array', 'continue'],
         'video.frames_per_second' : 50
     }
 
@@ -62,6 +62,7 @@ class CapEnv(gym.Env):
                 config_path=kwargs.get('config_path', None),
             )
 
+
     def seed(self, seed=None):
         """
         todo docs still
@@ -87,23 +88,43 @@ class CapEnv(gym.Env):
         """
 
         config_param = { # Configurable parameters
-                'elements': ['NUM_BLUE', 'NUM_RED', 'NUM_BLUE_UAV', 'NUM_RED_UAV', 'NUM_GRAY',
-                        'NUM_BLUE_UGV2', 'NUM_RED_UGV2',
-                        'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
-                        'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
-                        ],
-                'control': ['CONTROL_ALL', 'RED_STEP', 'RED_DELAY', 'BLUE_ADV_BIAS', 'RED_ADV_BIAS'],
-                'communication': ['COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
-                'memory': ['INDIV_MEMORY', 'TEAM_MEMORY', 'RENDER_INDIV_MEMORY', 'RENDER_TEAM_MEMORY'],
-                'settings': ['RL_SUGGESTIONS', 'STOCH_TRANSITIONS', 'STOCH_TRANSITIONS_EPS', 'STOCH_TRANSITIONS_MOD',
-                        'STOCH_ATTACK', 'STOCH_ATTACK_BIAS', 'STOCH_ZONES', 'RED_PARTIAL', 'BLUE_PARTIAL']
+                'elements': [
+                    'NUM_BLUE', 'NUM_RED',
+                    'NUM_BLUE_UAV', 'NUM_RED_UAV',
+                    'NUM_GRAY',
+                    'NUM_BLUE_UGV2', 'NUM_RED_UGV2',
+                    'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
+                    'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
+                    ],
+                'control': [
+                    'CONTROL_ALL',
+                    'MAX_STEP',
+                    'RED_STEP', 'RED_DELAY',
+                    'BLUE_ADV_BIAS', 'RED_ADV_BIAS'],
+                'communication': [
+                    'COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
+                'memory': [
+                    'INDIV_MEMORY',
+                    'TEAM_MEMORY',
+                    'RENDER_INDIV_MEMORY',
+                    'RENDER_TEAM_MEMORY'],
+                'settings': [
+                    'RL_SUGGESTIONS',
+                    'STOCH_TRANSITIONS',
+                    'STOCH_TRANSITIONS_EPS',
+                    'STOCH_TRANSITIONS_MOD',
+                    'STOCH_ATTACK',
+                    'STOCH_ATTACK_BIAS',
+                    'STOCH_ZONES',
+                    'RED_PARTIAL',
+                    'BLUE_PARTIAL']
             }
         config_datatype = {
                 'elements': [int, int, int ,int, int,
                         int, int,
                         int, int,
                         int, int],
-                'control': [bool, int, int, int, int],
+                'control': [bool, int, int, int, int, int],
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
@@ -166,6 +187,7 @@ class CapEnv(gym.Env):
             map_size = self.map_size[0]
 
         # INITIALIZE MAP
+        self.custom_board = custom_board
         if custom_board is None:  # Random Generated Map
             map_obj = {
                     (const.TEAM1_UGV, const.TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
@@ -189,6 +211,9 @@ class CapEnv(gym.Env):
             self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
 
         self.map_size = tuple(self._static_map.shape)
+        h, w = self._static_map.shape
+        Y, X = np.ogrid[:2*h, :2*w]
+        self._radial = (X-w)**2 + (Y-h)**2
 
         # INITIALIZE TEAM
         self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
@@ -211,8 +236,8 @@ class CapEnv(gym.Env):
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
-            self.blue_memory[:] = const.UNKNOWN
-            self.red_memory[:] = const.UNKNOWN
+            self.blue_memory = np.ones_like(self._static_map, dtype=bool)
+            self.red_memory = np.ones_like(self._static_map, dtype=bool)
 
         if self.INDIV_MEMORY == "fog":
             for agent in self._team_blue + self._team_red:
@@ -234,7 +259,6 @@ class CapEnv(gym.Env):
 
         # Necessary for human mode
         self.first = True
-
         self.run_step = 0  # Number of step of current episode
 
         return self.get_obs_blue
@@ -296,9 +320,10 @@ class CapEnv(gym.Env):
         def create_vision_mask(centers, radii):
             h, w = self._static_map.shape
             mask = np.zeros([h,w], dtype=bool)
-            Y, X = np.ogrid[:h, :w]
+            radial = self._radial
             for center, radius in zip(centers, radii):
-                mask += np.sqrt((X - center[1])**2 + (Y-center[0])**2) <= radius
+                y,x = center
+                mask += (radial[w-y:2*w-y, h-x:2*h-x]) <= radius ** 2
             return ~mask
 
         if self.BLUE_PARTIAL:
@@ -308,6 +333,8 @@ class CapEnv(gym.Env):
                 centers.append(agent.get_loc())
                 radii.append(agent.range)
             self._blue_mask = create_vision_mask(centers, radii)
+            if self.TEAM_MEMORY == "fog":
+                self.blue_memory = np.logical_and(self.blue_memory, self._blue_mask)
         else:
             self._blue_mask = np.zeros_like(self._static_map, dtype=bool)
 
@@ -318,12 +345,10 @@ class CapEnv(gym.Env):
                 centers.append(agent.get_loc())
                 radii.append(agent.range)
             self._red_mask = create_vision_mask(centers, radii)
+            if self.TEAM_MEMORY == "fog":
+                self.red_memory = np.logical_and(self.red_memory, self._red_mask)
         else:
             self._red_mask = np.zeros_like(self._static_map, dtype=bool)
-
-
-        # TODO need to be added observation for grey team
-        # self.observation_space_grey = np.full_like(self._env, -1)
 
     def step(self, entities_action=None, cur_suggestions=None):
         """
@@ -342,6 +367,7 @@ class CapEnv(gym.Env):
             info    :
         """
 
+        self.run_step += 1
         indiv_action_space = len(self.ACTION)
 
         if self.CONTROL_ALL:
@@ -354,9 +380,38 @@ class CapEnv(gym.Env):
 
             move_list_blue = entities_action[:len(self._team_blue)]
             move_list_red  = entities_action[-len(self._team_red):]
+
+            # Move team1
+            positions = []
+            for idx, act in enumerate(move_list_blue):
+                if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
+                    if self._policy_blue is not None and not self._policy_blue._random_transition_safe:
+                        act = 0
+                    else:
+                        act = self._stoch_transition(self._team_blue[idx].get_loc())
+                self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
+                positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
+            self._blue_trajectory.append(positions)
+
+
+            # Move team2
+            if self.mode == "sandbox":
+                move_list_red = []
+            positions = []
+            for idx, act in enumerate(move_list_red):
+                if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
+                    if self._policy_red is not None and not self._policy_red._random_transition_safe:
+                        act = 0
+                    else:
+                        act = self._stoch_transition(self._team_red[idx].get_loc())
+                self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
+                positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
+            self._red_trajectory.append(positions)
+
         else:
-            move_list_blue = []
+            # Move team1
             if entities_action is None:
+                # Use predefined policy
                 try:
                     move_list_blue = self._policy_blue.gen_action(self._team_blue, self.get_obs_blue)
                 except Exception as e:
@@ -364,59 +419,60 @@ class CapEnv(gym.Env):
                     traceback.print_exc()
                     exit()
             elif type(entities_action) is int:
+                # Action given in Integer
+                move_list_blue = []
                 if entities_action >= len(self.ACTION) ** len(self._team_blue):
                     sys.exit("ERROR: You entered too many moves. There are " + str(len(self._team_blue)) + " entities.")
                 while len(move_list_blue) < len(self._team_blue):
                     move_list_blue.append(entities_action % indiv_action_space)
                     entities_action = int(entities_action / indiv_action_space)
-            else:
+            else: 
+                # Action given in array
                 if len(entities_action) != len(self._team_blue):
                     sys.exit("ERROR: You entered wrong number of moves. There are " + str(len(self._team_blue)) + " entities.")
                 move_list_blue = entities_action
 
-
-        # Move team1
-        positions = []
-        for idx, act in enumerate(move_list_blue):
-            if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
-                if self._policy_blue is not None and not self._policy_blue._random_transition_safe:
-                    act = 0
-                else:
-                    act = self._stoch_transition(self._team_blue[idx].get_loc())
-            self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
-            positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
-        self._blue_trajectory.append(positions)
+            positions = []
+            for idx, act in enumerate(move_list_blue):
+                if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
+                    if self._policy_blue is not None and not self._policy_blue._random_transition_safe:
+                        act = 0
+                    else:
+                        act = self._stoch_transition(self._team_blue[idx].get_loc())
+                self._team_blue[idx].move(self.ACTION[act], self._env, self._static_map)
+                positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
+            self._blue_trajectory.append(positions)
 
 
-        # Move team2
-        move_list_red = []
-        if self.mode != "sandbox" and self.run_step % self.RED_DELAY == 0:
-            for _ in range(self.RED_STEP):
-                try:
-                    move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
-                except Exception as e:
-                    print("No valid policy for red team", e)
-                    traceback.print_exc()
-                    exit()
+            # Move team2
+            if self.mode != "sandbox" and self.run_step % self.RED_DELAY == 0:
+                for _ in range(self.RED_STEP):
+                    try:
+                        move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
+                    except Exception as e:
+                        print("No valid policy for red team", e)
+                        traceback.print_exc()
+                        exit()
 
-                positions = []
-                for idx, act in enumerate(move_list_red):
-                    if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
-                        if self._policy_red is not None and not self._policy_red._random_transition_safe:
-                            act = 0
-                        else:
-                            act = self._stoch_transition(self._team_red[idx].get_loc())
-                    self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
-                    positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
-                self._red_trajectory.append(positions)
+                    positions = []
+                    for idx, act in enumerate(move_list_red):
+                        if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
+                            if self._policy_red is not None and not self._policy_red._random_transition_safe:
+                                act = 0
+                            else:
+                                act = self._stoch_transition(self._team_red[idx].get_loc())
+                        self._team_red[idx].move(self.ACTION[act], self._env, self._static_map)
+                        positions.append((self._team_red[idx].get_loc(), self._team_red[idx].isAlive))
+                    self._red_trajectory.append(positions)
 
-                finish_move=False
-                for i in self._team_red:
-                    if i.isAlive and not i.is_air:
-                        locx, locy = i.get_loc()
-                        if self._static_map[locx][locy] == TEAM1_FLAG:
-                            finish_move=True
-                if finish_move: break
+                    finish_move=False
+                    for i in self._team_red:
+                        if i.isAlive and not i.is_air:
+                            locx, locy = i.get_loc()
+                            if self._static_map[locx][locy] == TEAM1_FLAG:
+                                finish_move=True
+                    if finish_move: break
+
         self._create_observation_mask()
         
         # Update individual's memory
@@ -424,18 +480,22 @@ class CapEnv(gym.Env):
             if agent.memory_mode == "fog":
                 agent.update_memory(env=self)
         
-        # Update team memory
-        if self.TEAM_MEMORY == "fog":
-            self._update_global_memory(env=self)
-
 
         # Run interaction
         survive_list = []
+        num_blue_killed = 0
+        num_red_killed = 0
         for entity in self._team_blue + self._team_red:
             if not entity.isAlive:
                 survive_list.append(False)
             else:
-                survive_list.append(self._interaction(entity))
+                new_status = self._interaction(entity)
+                survive_list.append(new_status)
+                if new_status is False:
+                    if entity.team == TEAM1_BACKGROUND:
+                        num_blue_killed += 1
+                    elif entity.team == TEAM2_BACKGROUND:
+                        num_red_killed += 1
         for status, entity in zip(survive_list, self._team_blue+self._team_red):
             entity.isAlive = status
 
@@ -467,19 +527,27 @@ class CapEnv(gym.Env):
             self.red_win = True
             self.blue_eliminated = True
 
-        # Calculate Reward
-        reward = self._create_reward()
+        isDone = self.red_win or self.blue_win or self.run_step > self.MAX_STEP
 
-        isDone = self.red_win or self.blue_win
+        # Calculate Reward
+        reward, red_reward = self._create_reward(num_blue_killed, num_red_killed, mode='instant')
+        #reward = self._create_reward(num_blue_killed, num_red_killed)
+
 
         # Pass internal info
         info = {
                 'blue_trajectory': self._blue_trajectory,
                 'red_trajectory': self._red_trajectory,
-                'static_map': self._static_map
+                'static_map': self._static_map,
+                'red_reward': red_reward
             }
 
-        self.run_step += 1
+
+        if self.mode == 'continue' and isDone:
+            # Case where the game is supposed to run continuously
+            self.reset()
+            return self.get_obs_blue, reward, False, info
+
         
         return self.get_obs_blue, reward, isDone, info
 
@@ -518,10 +586,11 @@ class CapEnv(gym.Env):
         bool    :
             Return true if the entity survived after the interaction
         """
-        if entity.is_air:
+        if entity.is_air: # No interaction for air agent
             return True
 
-        in_range = lambda i, j, r: i*i + j*j <= r*r + 1e-8
+        eps = 1e-8
+        in_range = lambda i, j, r: i*i + j*j <= r*r + eps
         loc = np.array(entity.get_loc())
         if self.STOCH_ATTACK:
             enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
@@ -586,38 +655,7 @@ class CapEnv(gym.Env):
 
         return True
 
-
-    def _update_global_memory(self, env):
-        """ 
-        team memory map
-        
-        """
-        
-        l, b = self.blue_memory.shape
-        for blue_agent in self._team_blue:
-            b_obs = blue_agent.get_obs(env=env)
-            leng, breth = b_obs.shape
-            leng, breth = leng//2, breth//2
-            b_coord_x, b_coord_y = blue_agent.get_loc()
-            b_offset_x, b_offset_y = leng - b_coord_x, breth - b_coord_y
-            b_obs = b_obs[b_offset_x: b_offset_x + l, b_offset_y: b_offset_y + b]   
-            b_coord = b_obs!= const.UNKNOWN
-            self.blue_memory[b_coord] = self._static_map[b_coord]
-             
-        l, b = self.red_memory.shape
-        for red_agent in self._team_red:
-            r_obs = red_agent.get_obs(env=env)
-            leng, breth = r_obs.shape
-            leng, breth = leng//2, breth//2
-            r_coord_x, r_coord_y = red_agent.get_loc()
-            r_offset_x, r_offset_y = leng - r_coord_x, breth - r_coord_y
-            r_obs = r_obs[r_offset_x: r_offset_x + l, r_offset_y: r_offset_y + b]   
-            r_coord = r_obs!= const.UNKNOWN
-            self.red_memory[r_coord] = self._static_map[r_coord]
-        
-        return
-
-    def _create_reward(self, mode='dense'):
+    def _create_reward(self, num_blue_killed, num_red_killed, mode='dense'):
         """
         Range (-100, 100)
 
@@ -627,7 +665,8 @@ class CapEnv(gym.Env):
             CapEnv object
         """
 
-        assert mode in ['dense', 'flag', 'combat', 'defense', 'capture']
+        assert mode in ['dense', 'flag', 'combat', 'defense', 'capture', 'instant']
+
         red_alive = sum([entity.isAlive for entity in self._team_red if not entity.is_air])
         blue_alive = sum([entity.isAlive for entity in self._team_blue if not entity.is_air])
         red_total = len([entity for entity in self._team_red if not entity.is_air])
@@ -662,7 +701,30 @@ class CapEnv(gym.Env):
             # Reward only by capturing (sparse)
             if self.red_flag_captured:
                 return 100
+        elif mode == 'instant':
+            ground_reward = -1.0
 
+            # DRAW
+            if self.red_flag_captured and self.blue_flag_captured:
+                return -1, -1
+            elif self.red_win and self.blue_win:
+                return -1, -1
+            elif self.run_step > self.MAX_STEP:
+                return -1, -1
+            
+            # TERMINATE
+            if self.red_win:
+                return -1, 1
+            elif self.blue_win:
+                return 1, -1
+
+            # INTERMEDIATE
+            diff = num_red_killed - num_blue_killed
+            lambd = 0.1
+            reward = ground_reward + diff * lambd
+            red_reward = ground_reward + (-diff) * lambd
+
+            return reward, red_reward
 
     def render(self, mode='human'):
         """
@@ -687,13 +749,13 @@ class CapEnv(gym.Env):
     
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
-            self._env_render(self._static_map,
+            self._env_render(self._static_map.T,
                             [7, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_obs_blue_render,
+            self._env_render(self.get_obs_blue_render.T,
                             [7+1.49*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_obs_red_render,
+            self._env_render(self.get_obs_red_render.T,
                             [7+1.49*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_full_state,
+            self._env_render(self.get_full_state.T,
                             [7, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
 
             # ind blue agent memory rendering
@@ -725,10 +787,15 @@ class CapEnv(gym.Env):
 
             if self.TEAM_MEMORY == "fog" and self.RENDER_TEAM_MEMORY == True:
                 # blue team memory rendering
-                self._env_render(self.blue_memory,
+                blue_visited = np.copy(self._static_map)
+                blue_visited[self.blue_memory] = UNKNOWN
+                self._env_render(blue_visited.T,
                                  [7+2.98*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
+
                 # red team memory rendering    
-                self._env_render(self.red_memory,
+                red_visited = np.copy(self._static_map)
+                red_visited[self.red_memory] = UNKNOWN
+                self._env_render(red_visited.T,
                                  [7+2.98*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
         else:
             SCREEN_W = 600
@@ -905,15 +972,32 @@ class CapEnv(gym.Env):
         view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
-            mask_channel = CHANNEL[UNKNOWN]
-            mask_represent = REPRESENT[UNKNOWN]
+            if self.TEAM_MEMORY == 'fog':
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
 
-            view[self._blue_mask, :] = 0
-            view[self._blue_mask, mask_channel] = mask_represent
+                mask_represent = REPRESENT[UNKNOWN]
+                mask_channel = CHANNEL[UNKNOWN]
+                fog_represent = REPRESENT[FOG]
+                fog_channel = CHANNEL[FOG]
+
+                for ch in memory_channel:
+                    view[self.blue_memory, ch] = 0
+                for ch in immediate_channel:
+                    view[self._blue_mask, ch] = 0
+                view[self._blue_mask, mask_channel] = mask_represent
+                view[self.blue_memory, fog_channel] = fog_represent
+            else:
+                mask_channel = CHANNEL[UNKNOWN]
+                mask_represent = REPRESENT[UNKNOWN]
+
+                view[self._blue_mask, :] = 0
+                view[self._blue_mask, mask_channel] = mask_represent
 
         for entity in self._team_red:
             if not entity.is_visible:
-                view[entity.get_loc(),entity.channel] = 0
+                x, y = entity.get_loc()
+                view[x, y, entity.channel] = 0
 
         return view
 
@@ -922,15 +1006,32 @@ class CapEnv(gym.Env):
         view = np.copy(self._env)
 
         if self.RED_PARTIAL:
-            mask_represent = REPRESENT[UNKNOWN]
-            mask_channel = CHANNEL[UNKNOWN]
+            if self.TEAM_MEMORY == 'fog':
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
 
-            view[self._red_mask, :] = 0
-            view[self._red_mask, mask_channel] = mask_represent
+                mask_represent = REPRESENT[UNKNOWN]
+                mask_channel = CHANNEL[UNKNOWN]
+                fog_represent = REPRESENT[FOG]
+                fog_channel = CHANNEL[FOG]
+
+                for ch in memory_channel:
+                    view[self.red_memory, ch] = 0
+                for ch in immediate_channel:
+                    view[self._red_mask, ch] = 0
+                view[self._red_mask, mask_channel] = mask_represent
+                view[self.red_memory, fog_channel] = fog_represent
+            else:
+                mask_channel = CHANNEL[UNKNOWN]
+                mask_represent = REPRESENT[UNKNOWN]
+
+                view[self._red_mask, :] = 0
+                view[self._red_mask, mask_channel] = mask_represent
 
         for entity in self._team_blue:
             if entity.is_visible:
-                view[entity.get_loc(),entity.channel] = 0
+                x, y = entity.get_loc()
+                view[x, y, entity.channel] = 0
 
         # Change red's perspective same as blue
         swap = set([CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
