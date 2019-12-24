@@ -702,7 +702,7 @@ class CapEnv(gym.Env):
             if self.red_flag_captured:
                 return 100
         elif mode == 'instant':
-            ground_reward = -1.0
+            ground_reward = -0.001
 
             # DRAW
             if self.red_flag_captured and self.blue_flag_captured:
