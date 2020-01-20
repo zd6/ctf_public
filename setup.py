@@ -6,5 +6,6 @@ setup(name="gym_cap",
       license="MIT",
       packages=["gym_cap", "gym_cap.envs"],
       zip_safe=False,
-      install_requires = ["gym", "pygame", "numpy"]
+      install_requires = ["gym", "pygame", "numpy"],
+      include_package_data=True,
 )
