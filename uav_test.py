@@ -25,18 +25,19 @@ rscore = []
 map_path = 'test_maps/fair_uav'
 map_paths = [join(map_path,f) for f in os.listdir(map_path) if isfile(join(map_path, f))]
 
-eprun = 100
+eprun = 1000
 
 try:
     #for _ in tqdm(range(eprun)):
     blue_policy = policy_wip.UAV()
-    #for _ in range(eprun):
-    while True:
+    for _ in range(eprun):
+    #while True:
         observation = env.reset(
                 map_size=20,
                 config_path='uav_settings.ini',
                 custom_board=random.choice(map_paths),
-                policy_blue=blue_policy,
+                #policy_blue=blue_policy,
+                policy_blue=policy.Roomba(),
                 policy_red=policy.Roomba(),
             )
         t = 0
@@ -57,11 +58,11 @@ try:
             epreward += reward
     
             # render and sleep are not needed for score analysis
-            env.render()
+            #env.render()
             #for i in range(1):
             #    print(env.get_obs_red[::-1,:,i])
             #input('')
-            time.sleep(.05)
+            #time.sleep(.05)
 
             #print(reward, epreward)
             #for i in range(10):

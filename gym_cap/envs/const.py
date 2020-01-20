@@ -8,9 +8,9 @@ NUM_RED = 4
 NUM_BLUE_UAV = 0
 NUM_RED_UAV = 0
 NUM_GRAY = 0
-UAV_STEP = 2
+UAV_STEP = 3
 UGV_STEP = 1
-UAV_RANGE = 3
+UAV_RANGE = 5
 UGV_RANGE = 3
 UAV_A_RANGE = 0
 UGV_A_RANGE = 2
@@ -70,8 +70,6 @@ CONTROL_ALL = False  # If true, step(action) controls both red and blue
 NP_SEED = None
 RED_STEP = 1
 RED_DELAY = 1
-BLUE_ADV_BIAS = 0
-RED_ADV_BIAS = 0
 
 SUGGESTION = -5
 FOG = -3
@@ -103,9 +101,9 @@ COLOR_DICT = {
         TEAM1_BACKGROUND : (0, 0, 120),
         TEAM2_BACKGROUND : (120, 0, 0),
         TEAM1_UGV : (0, 0, 255),
-        TEAM1_UAV : (0, 0, 255),
+        TEAM1_UAV : (55, 55, 230),
         TEAM2_UGV : (255, 0, 0),
-        TEAM2_UAV :  (255, 0, 0),
+        TEAM2_UAV :  (230, 55, 55),
         TEAM1_FLAG : (0, 255, 255),
         TEAM2_FLAG : (255, 255, 0),
         OBSTACLE : (120, 120, 120),

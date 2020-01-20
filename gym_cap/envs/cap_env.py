@@ -1,10 +1,7 @@
 import __future__
 
 import io
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import configparser
     
 import random
 import sys
@@ -13,6 +10,7 @@ import traceback
 import gym
 from gym import spaces
 from gym.utils import seeding
+
 import numpy as np
 
 from .agent import *
@@ -26,7 +24,7 @@ Requires that all units initially exist in home zone.
 
 class CapEnv(gym.Env):
     metadata = {
-        "render.modes": ["fast", "human", 'rgb_array', 'continue'],
+        "render.modes": ["human", "rgb_array"],
         'video.frames_per_second' : 50
     }
 
@@ -34,7 +32,6 @@ class CapEnv(gym.Env):
 
     def __init__(self, map_size=20, mode="random", **kwargs):
         """
-
         Parameters
         ----------
         self    : object
@@ -44,8 +41,8 @@ class CapEnv(gym.Env):
         self.viewer = None
         self._parse_config()
 
-        self.blue_memory = np.empty((map_size, map_size))
-        self.red_memory = np.empty((map_size, map_size))
+        self.blue_memory = np.zeros((map_size, map_size), dtype=bool)
+        self.red_memory = np.zeros((map_size, map_size), dtype=bool)
 
         self._policy_blue = None
         self._policy_red = None
@@ -53,25 +50,10 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self.reset(
-                map_size,
-                mode=mode,
-                policy_blue=kwargs.get('policy_blue', None),
-                policy_red=kwargs.get('policy_red', None),
-                custom_board=kwargs.get('custom_board', None),
-                config_path=kwargs.get('config_path', None),
-            )
+        self.reset(map_size, mode=mode, **kwargs)
 
 
     def seed(self, seed=None):
-        """
-        todo docs still
-
-        Parameters
-        ----------
-        self    : object
-            CapEnv object
-        """
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
@@ -86,28 +68,39 @@ class CapEnv(gym.Env):
 
         The parameter is accessible as class variable.
         """
-
-        config_param = { # Configurable parameters
+        # Configurable parameters
+        config_param = {
                 'elements': [
-                    'NUM_BLUE', 'NUM_RED',
-                    'NUM_BLUE_UAV', 'NUM_RED_UAV',
+                    'NUM_BLUE',
+                    'NUM_RED',
+                    'NUM_BLUE_UAV',
+                    'NUM_RED_UAV',
                     'NUM_GRAY',
-                    'NUM_BLUE_UGV2', 'NUM_RED_UGV2',
-                    'NUM_BLUE_UGV3', 'NUM_RED_UGV3',
-                    'NUM_BLUE_UGV4', 'NUM_RED_UGV4',
+                    'NUM_BLUE_UGV2',
+                    'NUM_RED_UGV2',
+                    'NUM_BLUE_UGV3',
+                    'NUM_RED_UGV3',
+                    'NUM_BLUE_UGV4',
+                    'NUM_RED_UGV4',
                     ],
                 'control': [
                     'CONTROL_ALL',
                     'MAX_STEP',
-                    'RED_STEP', 'RED_DELAY',
-                    'BLUE_ADV_BIAS', 'RED_ADV_BIAS'],
+                    'RED_STEP',
+                    'RED_DELAY',
+                    ],
                 'communication': [
-                    'COM_GROUND', 'COM_AIR', 'COM_DISTANCE', 'COM_FREQUENCY'],
+                    'COM_GROUND',
+                    'COM_AIR',
+                    'COM_DISTANCE',
+                    'COM_FREQUENCY'
+                    ],
                 'memory': [
                     'INDIV_MEMORY',
                     'TEAM_MEMORY',
                     'RENDER_INDIV_MEMORY',
-                    'RENDER_TEAM_MEMORY'],
+                    'RENDER_TEAM_MEMORY'
+                    ],
                 'settings': [
                     'RL_SUGGESTIONS',
                     'STOCH_TRANSITIONS',
@@ -117,7 +110,8 @@ class CapEnv(gym.Env):
                     'STOCH_ATTACK_BIAS',
                     'STOCH_ZONES',
                     'RED_PARTIAL',
-                    'BLUE_PARTIAL']
+                    'BLUE_PARTIAL'
+                    ]
             }
         config_datatype = {
                 'elements': [int, int, int ,int, int,
@@ -217,6 +211,7 @@ class CapEnv(gym.Env):
 
         # INITIALIZE TEAM
         self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
+        self._agents = self._team_blue+self._team_red
 
         self.action_space = spaces.Discrete(len(self.ACTION) ** len(self._team_blue))
         self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
@@ -476,27 +471,24 @@ class CapEnv(gym.Env):
         self._create_observation_mask()
         
         # Update individual's memory
-        for agent in self._team_blue + self._team_red:
+        for agent in self._agents:
             if agent.memory_mode == "fog":
                 agent.update_memory(env=self)
         
 
         # Run interaction
-        survive_list = []
+        target_agents = [agent for agent in self._agents if agent.isAlive and not agent.is_air]
+        survive_list = [agent.isAlive for agent in target_agents]
+        new_status = self._interaction(target_agents)
         num_blue_killed = 0
         num_red_killed = 0
-        for entity in self._team_blue + self._team_red:
-            if not entity.isAlive:
-                survive_list.append(False)
-            else:
-                new_status = self._interaction(entity)
-                survive_list.append(new_status)
-                if new_status is False:
-                    if entity.team == TEAM1_BACKGROUND:
-                        num_blue_killed += 1
-                    elif entity.team == TEAM2_BACKGROUND:
-                        num_red_killed += 1
-        for status, entity in zip(survive_list, self._team_blue+self._team_red):
+        for idx, entity in enumerate(target_agents):
+            if survive_list[idx] and not new_status[idx]:
+                if entity.team == TEAM1_BACKGROUND:
+                    num_blue_killed += 1
+                elif entity.team == TEAM2_BACKGROUND:
+                    num_red_killed += 1
+        for status, entity in zip(new_status, target_agents):
             entity.isAlive = status
 
         # Check win and lose conditions
@@ -574,86 +566,47 @@ class CapEnv(gym.Env):
 
         Parameters
         ----------
-        self    : object
-            CapEnv object
-        entity_num  : int
-            Represents where in the unit list is the unit to move
-        team    : int
-            Represents which team the unit belongs to
+        entity       : list
+            List of all agents
 
         Return
         ______
-        bool    :
+        list[bool] :
             Return true if the entity survived after the interaction
         """
-        if entity.is_air: # No interaction for air agent
-            return True
 
-        eps = 1e-8
-        in_range = lambda i, j, r: i*i + j*j <= r*r + eps
-        loc = np.array(entity.get_loc())
+        # Get parameters
+        att_range = np.array([agent.a_range for agent in entity], dtype=float)[:,None]
+        att_strength = np.array([agent.get_advantage for agent in entity])[:,None]
+        team_index = np.array([agent.team for agent in entity])
+        alliance_matrix = team_index[:,None]==team_index[None,:]
+
+        # Get distance between all agents
+        x, y = np.array([agent.get_loc() for agent in entity]).T
+        dx = np.subtract(*np.meshgrid(x,x))
+        dy = np.subtract(*np.meshgrid(y,y))
+        distance = np.hypot(dx, dy)
+
+        # Get influence matrix
+        infl_matrix = np.less(distance, att_range)
+        infl_matrix = infl_matrix * att_strength
+        friend_count = (infl_matrix*alliance_matrix).sum(axis=0)-1 # -1 to eliminate self
+        enemy_count = (infl_matrix*~alliance_matrix).sum(axis=0)
+        mask = enemy_count == 0
+
+        # Add background advantage bias
+        loc_background = [self._static_map[agent.get_loc()] for agent in entity]
+        friend_count[loc_background==team_index] += self.STOCH_ATTACK_BIAS
+        enemy_count[~(loc_background==team_index)] += self.STOCH_ATTACK_BIAS
+
+        # Interaction
         if self.STOCH_ATTACK:
-            enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
-            friend_list = self._team_blue if entity.team == TEAM1_BACKGROUND else self._team_red
-
-            n_enemies = 0
-            for enemy in enemy_list:
-                if enemy.is_air: continue
-                if not enemy.isAlive: continue
-                att_range = enemy.a_range
-                enemy_loc = np.array(enemy.get_loc())
-
-                if in_range(*(loc-enemy_loc), att_range):
-                    n_enemies += enemy.get_advantage
-
-            n_friends = 0
-            for friend in friend_list:
-                if friend.is_air: continue
-                if not friend.isAlive: continue
-                att_range = friend.a_range
-                friend_loc = np.array(friend.get_loc())
-
-                if np.all(friend_loc != loc) and in_range(*(loc-friend_loc), att_range):
-                    n_friends += friend.get_advantage
-
-            # Interaction 
-            if n_enemies > 0:
-                # Advantage bias for being in team territory
-                if entity.team == self._static_map[entity.get_loc()]:
-                    n_friends += self.STOCH_ATTACK_BIAS
-                else:
-                    n_enemies += self.STOCH_ATTACK_BIAS
-
-                # Adavantage bias based on team
-                if entity.team == TEAM1_BACKGROUND:
-                    n_friends += self.BLUE_ADV_BIAS
-                    n_enemies += self.RED_ADV_BIAS
-                else:
-                    n_friends += self.RED_ADV_BIAS
-                    n_enemies += self.BLUE_ADV_BIAS
-
-                if self.np_random.rand() > n_friends/(n_friends + n_enemies):
-                    #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-                    return False 
+            result = self.np_random.rand(*friend_count.shape) < friend_count / (friend_count + enemy_count)
         else:
-            # Check if agent is in enemy's territory
-            if self._static_map[tuple(loc)] == entity.team:
-                return True
+            result = friend_count > enemy_count
+        result[mask] = True
 
-            enemy_list = self._team_red if entity.team == TEAM1_BACKGROUND else self._team_blue
-
-            for enemy in enemy_list:
-                if enemy.is_air: continue
-                if not enemy.isAlive: continue
-                att_range = enemy.a_range
-                enemy_loc = np.array(enemy.get_loc())
-
-                if in_range(*(loc-enemy_loc), att_range):
-                    # If enemy is within attack range, declare dead
-                    #self._env[loc[0], loc[1], CHANNEL[DEAD]] = REPRESENT[DEAD]
-                    return False
-
-        return True
+        return result
 
     def _create_reward(self, num_blue_killed, num_red_killed, mode='dense'):
         """
@@ -702,7 +655,7 @@ class CapEnv(gym.Env):
             if self.red_flag_captured:
                 return 100
         elif mode == 'instant':
-            ground_reward = -0.001
+            bias = 0
 
             # DRAW
             if self.red_flag_captured and self.blue_flag_captured:
@@ -721,10 +674,10 @@ class CapEnv(gym.Env):
             # INTERMEDIATE
             diff = num_red_killed - num_blue_killed
             lambd = 0.1
-            reward = ground_reward + diff * lambd
-            red_reward = ground_reward + (-diff) * lambd
+            blue_reward = bias + diff * lambd
+            red_reward = bias + (-diff) * lambd
 
-            return reward, red_reward
+            return blue_reward, red_reward
 
     def render(self, mode='human'):
         """
@@ -946,6 +899,8 @@ class CapEnv(gym.Env):
         w, h, ch = self._env.shape
         image = np.full(shape=[w, h, 3], fill_value=0, dtype=int)
         for element in CHANNEL.keys():
+            if element == FOG:
+                continue
             channel = CHANNEL[element]
             rep = REPRESENT[element]
             image[self._env[:,:,channel]==rep] = np.array(COLOR_DICT[element])
