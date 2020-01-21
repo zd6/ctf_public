@@ -131,6 +131,7 @@ class CapEnv(gym.Env):
         if config_path is None:
             if self.config_path is not None:
                 config_path = self.config_path
+                return
             else:
                 # Default configuration
                 config_path = pkg_resources.resource_filename(__name__, 'default.ini')
