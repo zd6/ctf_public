@@ -2,6 +2,8 @@ import __future__
 
 import io
 import configparser
+import os
+import pkg_resources 
     
 import random
 import sys
@@ -126,24 +128,28 @@ class CapEnv(gym.Env):
             }
 
         if config_path is None:
-            # Default configuration
-            get = lambda key, name: getattr(const, name)
+            if self.config_path is not None:
+                config_path = self.config_path
+            else:
+                # Default configuration
+                config_location = pkg_resources.resource_filename(__name__, 'default.in')
+                self.config_path = config_location
         else:
-            # Custom configuration
-            config = configparser.ConfigParser()
-            config.read(config_path)
-            get = lambda key, name: config.get(key, name, fallback=getattr(const, name))
+            self.config_path = config_path
+
+        config = configparser.ConfigParser()
+        config.read(config_path)
 
         try:
             # Set environment attributes
             for section in config_param:
-                for name, datatype in zip(config_param[section], config_datatype[section]):
-                    value = get(section, name)
+                for option, datatype in zip(config_param[section], config_datatype[section]):
                     if datatype is bool:
-                        if type(value) == str:
-                            value = True if value == 'True' else False
-                    elif datatype is int or datatype is float:
-                        value = datatype(value)
+                        value = config.getboolean(section, option)
+                    elif datatype is int:
+                        value = config.getint(section, option)
+                    elif datatype is float:
+                        value = config.getfloat(section, option)
                     setattr(self, name, value)
         except Exception as e:
             print(e)
