@@ -41,6 +41,7 @@ class CapEnv(gym.Env):
         """
         self.seed()
         self.viewer = None
+        self.config_path = None
         self._parse_config()
 
         self.blue_memory = np.zeros((map_size, map_size), dtype=bool)
@@ -132,8 +133,8 @@ class CapEnv(gym.Env):
                 config_path = self.config_path
             else:
                 # Default configuration
-                config_location = pkg_resources.resource_filename(__name__, 'default.in')
-                self.config_path = config_location
+                config_path = pkg_resources.resource_filename(__name__, 'default.ini')
+                self.config_path = config_path
         else:
             self.config_path = config_path
 
@@ -150,7 +151,7 @@ class CapEnv(gym.Env):
                         value = config.getint(section, option)
                     elif datatype is float:
                         value = config.getfloat(section, option)
-                    setattr(self, name, value)
+                    setattr(self, option, value)
         except Exception as e:
             print(e)
             raise Exception('Configuration import fails: recheck whether all config variables are included')
