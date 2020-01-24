@@ -152,6 +152,8 @@ class CapEnv(gym.Env):
                         value = config.getint(section, option)
                     elif datatype is float:
                         value = config.getfloat(section, option)
+                    else:
+                        raise Exception('Unsupported datatype')
                     setattr(self, option, value)
         except Exception as e:
             print(e)
@@ -176,8 +178,6 @@ class CapEnv(gym.Env):
 
         # ASSERTIONS
         assert map_size is None or type(map_size) is int
-
-        # WARNINGS
 
         # STORE ARGUMENTS
         self.mode = mode
@@ -932,6 +932,7 @@ class CapEnv(gym.Env):
 
     @property
     def get_obs_blue(self):
+        # Get observation of blue agents with each agent centered.
         view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
