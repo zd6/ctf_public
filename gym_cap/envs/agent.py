@@ -3,8 +3,6 @@
 # from .cap_view2d import CaptureView2D
 from .const import *
 import numpy as np
-# from .create_map import CreateMap
-#from .enemy_ai import EnemyAI
 import math
 
 class Agent:
@@ -39,7 +37,6 @@ class Agent:
 
         self.unit_type = unit_type
         self.channel = CHANNEL[unit_type]
-        self.repr = REPRESENT[unit_type]
 
         # Movement and Interaction
         self.delay_count = 0
@@ -75,7 +72,7 @@ class Agent:
         # If agent is dead, dont move
         if not self.isAlive:
             dead_channel = CHANNEL[DEAD]
-            if env[self.x][self.y][dead_channel] == REPRESENT[DEAD]:
+            if env[self.x][self.y][dead_channel]:
                 env[self.x][self.y][dead_channel] = 0
             env[self.x][self.y][self.channel] = 0
             return
@@ -87,7 +84,6 @@ class Agent:
             self.delay_count = 0
 
         channel = self.channel
-        icon = self.repr
         collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level]))
         
         if action == "X":
@@ -124,7 +120,7 @@ class Agent:
 
                 nx, ny = px, py
                 # Interact with flag
-                if env[px,py,CHANNEL[enemy_flag]] == REPRESENT[enemy_flag]: 
+                if env[px,py,CHANNEL[enemy_flag]]: 
                     break
 
             # Not able to move
@@ -132,7 +128,7 @@ class Agent:
 
             # Make a movement
             env[self.x, self.y, channel] = 0
-            env[nx, ny, channel] = icon
+            env[nx, ny, channel] = 1
             self.x, self.y = nx, ny
         else:
             print("error: wrong action selected")
