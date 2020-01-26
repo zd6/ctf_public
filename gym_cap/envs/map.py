@@ -24,7 +24,6 @@ class Board(spaces.Space):
         - For multi-agent centering
     """
     def __init__(self, shape=None, dtype=np.bool_):
-        assert shape[2] == NUM_CHANNEL
         super(Board, self).__init__(shape, dtype)
 
         self._shape = shape

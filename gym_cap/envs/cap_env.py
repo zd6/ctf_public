@@ -57,7 +57,7 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self.board = Board()
+        self.board = Board(shape=map_size+[NUM_CHANNEL])
         self.reset(map_size, **kwargs)
 
     def seed(self, seed=None):
