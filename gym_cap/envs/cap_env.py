@@ -190,6 +190,7 @@ class CapEnv(gym.Env):
 
         # ASSERTIONS
         assert map_size is None or \
+            (type(map_size) is int) or \
             (type(map_size) is tuple and len(map_size)==2 and type(map_size[0] is int))
 
         # LOAD DEFAULT PARAMETERS
@@ -199,6 +200,8 @@ class CapEnv(gym.Env):
         # STORE ARGUMENTS
         if map_size is None:
             map_size = self.map_size
+        if type(map_size) is int:
+            map_size = tuple(map_size, map_size)
 
         # INITIALIZE MAP
         self.custom_board = custom_board
