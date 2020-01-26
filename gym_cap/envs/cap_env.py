@@ -33,7 +33,7 @@ class CapEnv(gym.Env):
 
     ACTION = ["X", "N", "E", "S", "W"]
 
-    def __init__(self, map_size=[20, 20], mode="random", **kwargs):
+    def __init__(self, map_size=(20, 20), mode="random", **kwargs):
         """
         Parameters
         ----------
@@ -57,7 +57,7 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self.board = Board(shape=map_size+[NUM_CHANNEL])
+        self.board = Board(shape=(map_size[0], map_size[1], NUM_CHANNEL))
         self.reset(map_size, **kwargs)
 
     def seed(self, seed=None):
