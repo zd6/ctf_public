@@ -151,6 +151,8 @@ class CapEnv(gym.Env):
                         value = config.getint(section, option)
                     elif datatype is float:
                         value = config.getfloat(section, option)
+                    elif dataype is str:
+                        value = config.get(section, option)
                     else:
                         raise Exception('Unsupported datatype')
                     setattr(self, option, value)
