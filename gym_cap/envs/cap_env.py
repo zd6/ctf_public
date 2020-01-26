@@ -16,8 +16,9 @@ from gym.utils import seeding
 import numpy as np
 
 from .agent import *
-from .create_map import gen_random_map, custom_map
-from gym_cap.envs import const
+from .map import Board # gen_random_map, custom_map
+from .utility import state_centering
+from .const import *
 
 """
 Requires that all units initially exist in home zone.
@@ -32,7 +33,7 @@ class CapEnv(gym.Env):
 
     ACTION = ["X", "N", "E", "S", "W"]
 
-    def __init__(self, map_size=20, mode="random", **kwargs):
+    def __init__(self, map_size=[20, 20], mode="random", **kwargs):
         """
         Parameters
         ----------
@@ -53,8 +54,8 @@ class CapEnv(gym.Env):
         self._blue_trajectory = []
         self._red_trajectory = []
 
-        self.reset(map_size, mode=mode, **kwargs)
-
+        self.board = Board()
+        self.reset(map_size, **kwargs)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -113,7 +114,9 @@ class CapEnv(gym.Env):
                     'STOCH_ATTACK_BIAS',
                     'STOCH_ZONES',
                     'RED_PARTIAL',
-                    'BLUE_PARTIAL'
+                    'BLUE_PARTIAL',
+                    'MAP_MODE',
+                    'MAP_POOL_SIZE',
                     ]
             }
         config_datatype = {
@@ -125,7 +128,7 @@ class CapEnv(gym.Env):
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
-                        bool, int, bool, bool, bool]
+                        bool, int, bool, bool, bool, str, int]
             }
 
         if config_path is None:
@@ -159,48 +162,65 @@ class CapEnv(gym.Env):
             print(e)
             raise Exception('Configuration import fails: recheck whether all config variables are included')
 
-    def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
-            custom_board=None, config_path=None):
-        """ 
-        Resets the game
+    def reset(self, map_size=None, policy_blue=None, policy_red=None,
+            custom_board=None, config_path=None, **kwargs):
+        """ Resets the game state.
+
+        If policy is not provided, it reuse the previous policy.
+
+        The map of the game is initialized with following priority:
+            1. custom board is given (file directory) 
+            2. MAP_MODE (map_size)
+                - random: randomly initialized map
+                - (TODO) fair: randomly initialized fair map
+                - (TODO) pool_random: pre-generated N-size random maps
+                - (TODO) pool_fair: pre-generated N-size fair maps
 
         Parameters
-        ----------------
-
-        map_size : [int] 
-        mode : [str] 
+        ----------
+        map_size : [(int, int)] 
         policy_blue : [policy] 
         policy_red : [policy] 
         custom_board : [str, numpy.ndarray] 
         config_path : [str] 
 
+        Returns:
+        ________
+        Observation State: [numpy.ndarray]
+
         """
 
         # ASSERTIONS
-        assert map_size is None or type(map_size) is int
-
-        # STORE ARGUMENTS
-        self.mode = mode
+        assert map_size is None or \
+            (type(map_size) is tuple and len(map_size)==2 and type(map_size[0] is int)
 
         # LOAD DEFAULT PARAMETERS
         if config_path is not None:
-            self._parse_config(config_path)
+            self.config = self._parse_config(config_path)
+            
+        # STORE ARGUMENTS
         if map_size is None:
-            map_size = self.map_size[0]
+            map_size = self.map_size
 
         # INITIALIZE MAP
         self.custom_board = custom_board
         if custom_board is None:  # Random Generated Map
             map_obj = {
-                    (const.TEAM1_UGV, const.TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
-                    (const.TEAM1_UAV, const.TEAM2_UAV): (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
-                    (const.TEAM1_UGV2, const.TEAM2_UGV2): (self.NUM_BLUE_UGV2, self.NUM_RED_UGV2),
-                    (const.TEAM1_UGV3, const.TEAM2_UGV3): (self.NUM_BLUE_UGV3, self.NUM_RED_UGV3),
-                    (const.TEAM1_UGV4, const.TEAM2_UGV4): (self.NUM_BLUE_UGV4, self.NUM_RED_UGV4)
+                    'UAV': (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
+                    'UGV': (self.NUM_BLUE, self.NUM_RED),
+                    'UGV2': (self.NUM_BLUE_UGV2, self.NUM_RED_UGV2),
+                    'UGV3': (self.NUM_BLUE_UGV3, self.NUM_RED_UGV3),
+                    'UGV4': (self.NUM_BLUE_UGV4, self.NUM_RED_UGV4)
                 }
 
-            self._env, self._static_map, agent_locs = gen_random_map('map',
-                    map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
+            agent_locs = self.board.generate_map(
+                    mode=self.MAP_MODE,
+                    shape=map_size,
+                    num_flag=(1,1),
+                    island_zone=self.STOCH_ZONES,
+                    np_random=self.np_random,
+                    map_obj=map_obj,
+                )
         else:
             if type(custom_board) is str:
                 board = np.loadtxt(custom_board, dtype = int, delimiter = " ")
@@ -208,12 +228,12 @@ class CapEnv(gym.Env):
                 board = custom_board
             else:
                 raise AttributeError("Provided board must be either path(str) or matrix(np array).")
-            self._env, self._static_map, map_obj, agent_locs = custom_map(board)
+            map_obj, agent_locs = self.board.custom_map(board)
             self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
             self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
 
-        self.map_size = tuple(self._static_map.shape)
-        h, w = self._static_map.shape
+        self.map_size = self.board.space[:2]
+        h, w = self.map_size
         Y, X = np.ogrid[:2*h, :2*w]
         self._radial = (X-w)**2 + (Y-h)**2
 
@@ -221,21 +241,17 @@ class CapEnv(gym.Env):
         self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
         self._agents = self._team_blue+self._team_red
 
-        self.action_space = spaces.Discrete(len(self.ACTION) ** len(self._team_blue))
-        self.observation_space = Board(shape=[self.map_size[0], self.map_size[1], NUM_CHANNEL])
 
         # INITIATE POLICY
         if policy_blue is not None:
             self._policy_blue = policy_blue
         if self._policy_blue is not None:
             self._policy_blue.initiate(self._static_map, self._team_blue)
-        if len(self._team_red) == 0:
-            self.mode = "sandbox"
-        else:
-            if policy_red is not None:
-                self._policy_red = policy_red
-            if self._policy_red is not None:
-                self._policy_red.initiate(self._static_map, self._team_red)
+        if policy_red is not None:
+            self._policy_red = policy_red
+        if self._policy_red is not None:
+            self._policy_red.initiate(self._static_map, self._team_red)
+
 
         # INITIALIZE MEMORY
         if self.TEAM_MEMORY == "fog":
@@ -244,7 +260,7 @@ class CapEnv(gym.Env):
 
         if self.INDIV_MEMORY == "fog":
             for agent in self._team_blue + self._team_red:
-                agent.memory[:] = const.UNKNOWN
+                agent.memory[:] = UNKNOWN
                 agent.memory_mode = "fog"
 
         # INITIALIZE TRAJECTORY (DEBUG)
@@ -266,7 +282,7 @@ class CapEnv(gym.Env):
 
         return self.get_obs_blue
 
-    def _construct_agents(self, agent_coords, static_map):
+    def _construct_agents(self, agent_coords):
         """
         From given coordinates, it generates objects of agents and make them into the list.
 
@@ -274,13 +290,12 @@ class CapEnv(gym.Env):
         team_red  --> [air1, air2, ... , ground1, ground2, ...]
 
         complete_map    : 2d numpy array
-        static_map      : 2d numpy array
 
         """
         team_blue = []
         team_red = []
 
-        Class = {
+        element_class = {
             TEAM1_UAV : (AerialVehicle, TEAM1_BACKGROUND),
             TEAM2_UAV : (AerialVehicle, TEAM2_BACKGROUND),
             TEAM1_UGV : (GroundVehicle, TEAM1_BACKGROUND),
@@ -296,8 +311,8 @@ class CapEnv(gym.Env):
         for element, coords in agent_coords.items():
             if coords is None: continue
             for coord in coords:
-                Vehicle, team_id = Class[element]
-                cur_ent = Vehicle(coord, static_map, team_id, element)
+                Vehicle, team_id = element_class[element]
+                cur_ent = Vehicle(coord, self._static_map, team_id, element)
                 if team_id == TEAM1_BACKGROUND:
                     team_blue.append(cur_ent)
                 elif team_id == TEAM2_BACKGROUND:
@@ -398,8 +413,6 @@ class CapEnv(gym.Env):
 
 
             # Move team2
-            if self.mode == "sandbox":
-                move_list_red = []
             positions = []
             for idx, act in enumerate(move_list_red):
                 if self.STOCH_TRANSITIONS and self.np_random.rand() < self.STOCH_TRANSITIONS_EPS:
@@ -448,7 +461,7 @@ class CapEnv(gym.Env):
 
 
             # Move team2
-            if self.mode != "sandbox" and self.run_step % self.RED_DELAY == 0:
+            if self.run_step % self.RED_DELAY == 0:
                 for _ in range(self.RED_STEP):
                     try:
                         move_list_red = self._policy_red.gen_action(self._team_red, self.get_obs_red)
@@ -510,7 +523,7 @@ class CapEnv(gym.Env):
                     self.blue_flag_captured = True
                     
         # TODO Change last condition for multi agent model
-        if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
+        if not has_alive_entity and self.mode != "human_blue":
             self.blue_win = True
             self.red_eliminated = True
 
@@ -641,8 +654,7 @@ class CapEnv(gym.Env):
             if self.blue_win:
                 return 100
             reward = 0
-            if self.mode != 'sandbox':
-                reward += 50.0 * (red_total - red_alive) / red_total
+            reward += 50.0 * (red_total - red_alive) / red_total
             reward -= (50.0 * (blue_total - blue_alive) / blue_total)
             return reward
         elif mode == 'flag':
@@ -895,6 +907,22 @@ class CapEnv(gym.Env):
         return board
 
     @property
+    def _env(self):
+        return self.board.current_map
+
+    @property
+    def _static_map(self):
+        return self.board.current_map_static
+
+    @property
+    def observation_space(self):
+        return self.board.space
+
+    @property
+    def action_space(self):
+        return spaces.Discrete(len(self.ACTION) ** len(self._team_blue))
+
+    @property
     def get_full_state(self, mask=None):
         return self._env_flat()
 
@@ -910,8 +938,7 @@ class CapEnv(gym.Env):
             if element == FOG:
                 continue
             channel = CHANNEL[element]
-            rep = REPRESENT[element]
-            image[self._env[:,:,channel]==rep] = np.array(COLOR_DICT[element])
+            image[self._env[:,:,channel]] = np.array(COLOR_DICT[element])
         return image
 
     @property
@@ -931,8 +958,32 @@ class CapEnv(gym.Env):
         return np.copy(self._static_map)
 
     @property
+    def get_obs(self):
+        """ Get state representation of the game.
+
+        If CONTROL_ALL is true, the state includes both red and blue agents.
+        It separately returns observation for distinct agent types.
+
+        Return:
+        _______
+        List of observation tensor
+            Each observation numpy.ndarray has shape of [n, dx, dy, channel]
+        """
+        if self.CONTROL_ALL:
+            blue = self.get_obs_blue
+            red = self.get_obs_red
+            return tuple(np.concatenate((s0, s1), axis=0) for s0, s1 in zip(blue,red)) 
+        else:
+            return self.get_obs_blue
+
+    @property
     def get_obs_blue(self):
         # Get observation of blue agents with each agent centered.
+        # return(list): [uav_observation, ugb_observation]
+        #   uav_observation(numpy): [num_uav, 2*radius-1, 2*radius-1, channel]
+        #   ugv_observation(numpy): [num_ugv, 2*radius-1, 2*radius-1, channel]
+
+        radius = self.map_size-1
         view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
@@ -940,23 +991,20 @@ class CapEnv(gym.Env):
                 memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
                 immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
 
-                mask_represent = REPRESENT[UNKNOWN]
                 mask_channel = CHANNEL[UNKNOWN]
-                fog_represent = REPRESENT[FOG]
                 fog_channel = CHANNEL[FOG]
 
                 for ch in memory_channel:
                     view[self.blue_memory, ch] = 0
                 for ch in immediate_channel:
                     view[self._blue_mask, ch] = 0
-                view[self._blue_mask, mask_channel] = mask_represent
-                view[self.blue_memory, fog_channel] = fog_represent
+                view[self._blue_mask, mask_channel] = 1
+                view[self.blue_memory, fog_channel] = 1
             else:
                 mask_channel = CHANNEL[UNKNOWN]
-                mask_represent = REPRESENT[UNKNOWN]
 
                 view[self._blue_mask, :] = 0
-                view[self._blue_mask, mask_channel] = mask_represent
+                view[self._blue_mask, mask_channel] = 1
 
         for entity in self._team_red:
             if not entity.is_visible:
@@ -974,23 +1022,20 @@ class CapEnv(gym.Env):
                 memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
                 immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
 
-                mask_represent = REPRESENT[UNKNOWN]
                 mask_channel = CHANNEL[UNKNOWN]
-                fog_represent = REPRESENT[FOG]
                 fog_channel = CHANNEL[FOG]
 
                 for ch in memory_channel:
                     view[self.red_memory, ch] = 0
                 for ch in immediate_channel:
                     view[self._red_mask, ch] = 0
-                view[self._red_mask, mask_channel] = mask_represent
-                view[self.red_memory, fog_channel] = fog_represent
+                view[self._red_mask, mask_channel] = 1
+                view[self.red_memory, fog_channel] = 1
             else:
                 mask_channel = CHANNEL[UNKNOWN]
-                mask_represent = REPRESENT[UNKNOWN]
 
                 view[self._red_mask, :] = 0
-                view[self._red_mask, mask_channel] = mask_represent
+                view[self._red_mask, mask_channel] = 1
 
         for entity in self._team_blue:
             if entity.is_visible:
@@ -1031,27 +1076,4 @@ class CapEnvGenerate(CapEnv):
     def __init__(self):
         super(CapEnvGenerate, self).__init__(map_size=20)
 
-
-# State space for capture the flag
-class Board(spaces.Space):
-    """A Board in R^3 used for CtF """
-    def __init__(self, shape=None, dtype=np.uint8):
-        assert dtype is not None, 'dtype must be explicitly provided. '
-        self.dtype = np.dtype(dtype)
-
-        if shape is None:
-            self.shape = (20, 20, NUM_CHANNEL)
-        else:
-            assert shape[2] == NUM_CHANNEL
-            self.shape = tuple(shape)
-        super(Board, self).__init__(self.shape, self.dtype)
-
-    def __repr__(self):
-        return "Board" + str(self.shape)
-
-    def sample(self):
-        map_obj = [NUM_BLUE, NUM_BLUE_UAV, NUM_RED, NUM_RED_UAV, NUM_GRAY]
-        state, _, _ = gen_random_map('map',
-                self.shape[0], rand_zones=False, map_obj=map_obj)
-        return state
 

@@ -1,9 +1,10 @@
 import numpy as np
 import random
+import warnings
 from .const import *
 
 """
-This module generates a map given desire conditions:
+This module provides Board class with map related methods
 
 gen_random_map:
     It creates random map given dimension size, number of obstacles,
@@ -13,185 +14,241 @@ custom_map:
     It generates map given a numpy array.
 """
 
-def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
-            map_obj=None):
+# State space for capture the flag
+class Board(spaces.Space):
+    """A Board in R^3 used for CtF 
+
+    * Board is stored in padded memory
+        - For multi-agent centering
     """
-    Method
+    def __init__(self, shape=None, dtype=np.bool_):
+        assert shape[2] == NUM_CHANNEL
+        super(Board, self).__init__(shape, dtype)
 
-    Generate map with given setting
+        self._shape = shape
+        self._dtype = dtype
 
-    Parameters
-    ----------
-    name        : TODO
-        Not used
-    dim         : int
-        Size of the map
-    in_seed     : int
-        Random seed between 0 and 2**32
-    rand_zones  : bool
-        True if zones are defined random
-    map_obj     : list
-        The necessary elements to build the map
-        0   : blue UGV
-        1   : blue UAV
-        2   : red UGV
-        3   : red UAV
-        4   : gray units
-    """
+        #self.map_pool = []
+        #self.pool_size = 0
 
-    # ASSERTION
-    assert map_obj is not None
+        self.current_map = None
+        self.current_map_static = None
+        self.current_id = 0
 
-    # INITIALIZE THE SEED 
-    if np_random is None:
-        np_random = np.random
-    if in_seed is not None:
-        np.random.seed(in_seed)
+    def __repr__(self):
+        return "Board size " + str(self.shape)
 
-    # PARAMETERS
-    num_flag = 1
-    total_blue, total_red = num_flag, num_flag
-    for k, v in map_obj.items():
-        total_blue += v[0]
-        total_red += v[1]
+    def sample(self):
+        map_obj = [NUM_BLUE, NUM_BLUE_UAV, NUM_RED, NUM_RED_UAV, NUM_GRAY]
+        state, _, _ = gen_random_map('map',
+                self.shape[0], island_zone=False, map_obj=map_obj)
+        return state
 
-    # CH 0 : UNKNOWN
-    mask = np.zeros([dim, dim], dtype=int)
-
-    can_fit = True
-    while can_fit:
-        # CH 1 : ZONE (included in static)
-        zone = np.ones([dim, dim], dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
-        static_map = np.zeros([dim, dim], dtype=int)
-        if rand_zones:
-            sx, sy = np_random.randint(dim//2, 4*dim//5, [2])
-            lx, ly = np_random.randint(0, dim - max(sx,sy)-1, [2])
-            zone[lx:lx+sx, ly:ly+sy] = -1
-            static_map[lx:lx+sx, ly:ly+sy] = TEAM2_BACKGROUND
+    def generate_map(self, mode, **kwargs):
+        if mode == 'random':
+            state, static_state, obj_loc = self.gen_random_map(**kwargs)
+            self.current_map = state
+            self.current_map_static = static_state
+            self.current_id = 0
         else:
-            zone[:,0:dim//2] = -1
-            static_map[:,0:dim//2] = TEAM2_BACKGROUND
-            #zone = np.rot90(zone)
-        if 0.5 < np_random.rand():
-            zone = -zone  # Reverse
-            static_map = -static_map+1  # TODO: not a safe method to reverse static_map
+            raise NotImplementedError, 'Only random mode available'
 
-        # CH 3 : OBSTACLE
-        obst = np.zeros([dim, dim], dtype=int)
-        num_obst = int(np.sqrt(dim))
-        for i in range(num_obst):
-            lx, ly = np_random.randint(0, dim, [2])
-            sx, sy = np_random.randint(0, dim//5, [2]) + 1
-            zone[lx-sx:lx+sx, ly-sy:ly+sy] = 0
-            obst[lx-sx:lx+sx, ly-sy:ly+sy] = REPRESENT[OBSTACLE]
-            static_map[lx-sx:lx+sx, ly-sy:ly+sy] = OBSTACLE
+        return obj_loc
 
-        ## Random Coord Create
-        try: # Take possible coordinates for all elements
-            blue_pool = np.argwhere(zone== 1)
-            blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
-            blue_coord = np.take(blue_pool, blue_indices, axis=0)
+    def gen_random_map(self, shape=(20,20), num_flag=(1,1), map_obj=None, island_zone=False, np_random=None):
+        """ Generate structured map with random allocating obstacles and agents
 
-            red_pool = np.argwhere(zone==-1)
-            red_indices = np_random.choice(len(red_pool), total_red, replace=False)
-            red_coord = np.take(red_pool, red_indices, axis=0)
+        Generate map with given setting
 
-            can_fit = False # Exit loop
-        except ValueError as e:
-            msg = "This warning occurs when the map is too small to allocate all elements."
-            #raise ValueError(msg) from e
+        Parameters
+        ----------
+        shape : tuple(int,int) or int
+            Size of the map (ly, lx)
+        num_flag: tuple(int,int)
+            Number of flag in each team
+        map_obj     : list
+            The necessary elements to build the map
+            'UAV', 'UGV', 'UGV2', 'UGV3', 'UGV4'
+        island_zone  : bool
+            True if zones are defined random
+        """
 
-    # CH 2 : FLAG (included in static)
-    flag = np.zeros([dim, dim], dtype=int)
+        # ASSERTION
+        assert map_obj is not None
 
-    blue_flag_coord, blue_coord = blue_coord[:num_flag], blue_coord[num_flag:]
-    flag[blue_flag_coord[:,0], blue_flag_coord[:,1]] = 1
-    static_map[blue_flag_coord[:,0], blue_flag_coord[:,1]] = TEAM1_FLAG
+        # INITIALIZE THE SEED 
+        if np_random is None:
+            np_random = np.random
 
-    red_flag_coord, red_coord = red_coord[:num_flag], red_coord[num_flag:]
-    flag[red_flag_coord[:,0], red_flag_coord[:,1]] = -1
-    static_map[red_flag_coord[:,0], red_flag_coord[:,1]] = TEAM2_FLAG
+        # MAP SHAPE FOR SQUARE
+        if type(shape) is int:
+            shape = tuple(shape, shape)
+        self._shape = (shape[0], shape[1], NUM_CHANNEL)
+        dim = np.amin(shape)
 
-    # Build New Map
-    temp = np.zeros_like(mask)
-    new_map = np.zeros([dim, dim, NUM_CHANNEL], dtype=int)
-    new_map[:,:,0] = mask
-    new_map[:,:,1] = zone
-    new_map[:,:,2] = flag
-    new_map[:,:,3] = obst
-    
-    ## Agents
-    agent_locs = {}
+        # PRE-COUNT ELEMENT
+        blue_split_ind, red_split_ind = [num_flag[0]], [num_flag[1]]
+        names = ['flag']
+        for key, value in map_obj.items():
+            names.append(key)
+            blue_split_ind.append(value[0])
+            red_split_ind.append(value[1])
+        total_blue, total_red = sum(blue_split_ind), sum(red_split_ind)
+        blue_split_ind = np.cumsum(blue_split_ind)
+        red_split_ind = np.cumsum(red_split_ind)
 
-    keys = [(TEAM1_UAV, TEAM2_UAV),
-            (TEAM1_UGV, TEAM2_UGV),
-            (TEAM1_UGV2, TEAM2_UGV2),
-            (TEAM1_UGV3, TEAM2_UGV3),
-            (TEAM1_UGV4, TEAM2_UGV4)]
-    for k in keys:
-        nb, nr = map_obj[k]
+        # RETURNS
+        env = np.zeros(self._shape, dtype=self._dtype)
+        env_static = np.zeros(shape, dtype=int)
+
+        warning_counter = 0
+        warning_max = 20
+        while warning_counter < warning_max: # Continue until all elements are placed
+            # CH 1 : ZONE (included in static)
+            zone = np.ones(shape, dtype=int)  # 1 for blue, 2 for red, 0 for obstacle
+            if island_zone:
+                sx, sy = np_random.randint(dim//2, 4*dim//5, [2])
+                lx, ly = np_random.randint(0, dim - max(sx,sy)-1, [2])
+                zone[lx:lx+sx, ly:ly+sy] = 2
+            else:
+                zone[:,0:dim//2] = 2
+            if 0.5 < np_random.rand():
+                zone = -zone  # Reverse for equal expectation
+
+            # CH 3 : OBSTACLE
+            num_obst = int(np.sqrt(np.min(shape)))
+            for i in range(num_obst):
+                lx, ly = np_random.randint(0, dim, [2])
+                sx, sy = np_random.randint(0, dim//5, [2]) + 1
+                zone[lx-sx:lx+sx, ly-sy:ly+sy] = 0
+
+            ## Coordinate Selection for Red and Blue
+            blue_pool = np.argwhere(zone==1)
+            if len(blue_pool) < total_blue:
+                warning_counter += 1
+                warnings.warn("Map is too small to allocate all elements.")
+                continue
+            #blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
+            #blue_coord = np.take(blue_pool, blue_indices, axis=0)
+
+            red_pool = np.argwhere(zone==2)
+            if len(red_pool) < total_red:
+                warning_counter += 1
+                warnings.warn("Map is too small to allocate all elements.")
+                continue
+
+            break
+        if warning_counter == warning_max:
+            raise InterruptedError, "Map size is too small. Warning counter reached max"
+        env[:,:,CHANNEL[TEAM1_BACKGROUND]] = zone==1
+        env[:,:,CHANNEL[TEAM2_BACKGROUND]] = zone==2
+        env[:,:,CHANNEL[OBSTACLE]] = zone==0
+
+        # Elements
+        element_locs = {}
+        blue_coords = np.split(blue_pool, blue_split_ind)
+        red_coords = np.split(red_pool, red_split_ind)
+        for name, blue_coord, red_coord in zip(names, blue_coords, red_coords):
+            if name == 'flag':
+                team1_id = TEAM1_FLAG
+                team2_id = TEAM2_FLAG
+            elif name == 'UAV':
+                team1_id = TEAM1_UAV
+                team2_id = TEAM2_UAV
+            elif name == 'UGV':
+                team1_id = TEAM1_UGV
+                team2_id = TEAM2_UGV
+            elif name == 'UGV2':
+                team1_id = TEAM1_UGV2
+                team2_id = TEAM2_UGV2
+            elif name == 'UGV3':
+                team1_id = TEAM1_UGV3
+                team2_id = TEAM2_UGV3
+            elif name == 'UGV4':
+                team1_id = TEAM1_UGV4
+                team2_id = TEAM2_UGV4
+            else:
+                raise NotImplementedError, "Element Type is not defined"
+            team1_ch = CHANNEL[team1_id]
+            team2_ch = CHANNEL[team2_id]
+            element_locs[team1_ch] = blue_coord.tolist()
+            element_locs[team2_ch] = red_coord.tolist()
+            if team1_ch < NUM_CHANNEL:
+                for y, x in blue_coord:
+                    env[y,x,team1_ch] = 1
+            if team2_ch < NUM_CHANNEL:
+                for y, x in red_coord:
+                    env[y,x,team2_ch] = 1
+        element_locs.pop(TEAM1_FLAG, None) 
+        element_locs.pop(TEAM2_FLAG, None) 
+
+        env_static[env[:,:,CHANNEL[TEAM1_FLAG]]] = TEAM1_FLAG
+        env_static[env[:,:,CHANNEL[TEAM2_FLAG]]] = TEAM2_FLAG
+        env_static[env[:,:,CHANNEL[TEAM1_BACKGROUND]]] = TEAM1_BACKGROUND
+        env_static[env[:,:,CHANNEL[TEAM2_BACKGROUND]]] = TEAM2_BACKGROUND
+        env_static[env[:,:,CHANNEL[OBSTACLE]]] = OBSTACLE
+
+        return env, env_static, element_locs
+
+    def flush_pool(self):
+        self.map_pool.clear()
+        self.pool_size = 0
+
+    def load_maps(self, path='map_save'):
+        pass
+
+    def save_maps(self, path='map_save'):
+        pass
+
+    def custom_map(self, custom_board):
+        """ Generate map from predefined array
+
+        Parameters
+        ----------
+        custom_board : numpy array
+            new_map
+        The necessary elements:
+            ugv_1   : blue UGV
+            ugv_2   : red UGV
+            uav_2   : red UAV
+            gray    : gray units
+            
+        """
         
-        channel = CHANNEL[k[0]]
-        coord, blue_coord = blue_coord[:nb], blue_coord[nb:]
-        new_map[coord[:,0], coord[:,1], channel] = REPRESENT[k[0]]
-        agent_locs[k[0]] = coord.tolist()
+        # BUILD OBJECT COUNT ARRAY
+        element_count = dict(zip(*np.unique(custom_board, return_counts=True)))
+        keys = {TEAM1_BACKGROUND: [TEAM1_UGV, TEAM1_UAV, TEAM1_UGV2, TEAM1_UGV3, TEAM1_UGV4],
+                TEAM2_BACKGROUND: [TEAM2_UGV, TEAM2_UAV, TEAM2_UGV2, TEAM2_UGV3, TEAM2_UGV4] }
 
-        channel = CHANNEL[k[1]]
-        coord, red_coord = red_coord[:nr], red_coord[nr:]
-        new_map[coord[:,0], coord[:,1], channel] = REPRESENT[k[1]]
-        agent_locs[k[1]] = coord.tolist()
+        # RETURNS
+        obj_dict = {TEAM1_BACKGROUND: [],
+                    TEAM2_BACKGROUND: []}
+        agent_locs = {}
 
-    return new_map, static_map, agent_locs
+        l, b = new_map.shape
+        self._shape = (l, b, NUM_CHANNEL)
+        self.current_map_static = np.copy(custom_board)
 
-def custom_map(new_map):
-    """
-    Method
-        Outputs static_map when new_map is given as input.
-        Addtionally the number of agents will also be
-        counted
-    
-    Parameters
-    ----------
-    new_map        : numpy array
-        new_map
-    The necessary elements:
-        ugv_1   : blue UGV
-        ugv_2   : red UGV
-        uav_2   : red UAV
-        gray    : gray units
-        
-    """
-    
-    # build object count array
-    element_count = dict(zip(*np.unique(new_map, return_counts=True)))
+        # BUILD 3D MAP
+        env = np.zeros(self._shape, dtype=self._dtype)
+        for element, channel in CHANNEL.items():
+            if element in new_map and channel < NUM_CHANNEL:
+                env[new_map==element,channel] = 1
 
-    keys = {TEAM1_BACKGROUND: [TEAM1_UGV, TEAM1_UAV, TEAM1_UGV2, TEAM1_UGV3, TEAM1_UGV4],
-            TEAM2_BACKGROUND: [TEAM2_UGV, TEAM2_UAV, TEAM2_UGV2, TEAM2_UGV3, TEAM2_UGV4] }
-    obj_dict = {TEAM1_BACKGROUND: [],
-                TEAM2_BACKGROUND: []}
-    static_map = np.copy(new_map)
-    agent_locs = {}
-    l, b = new_map.shape
+        for team, elems in keys.items():
+            for e in elems:
+                # Count element and append on obj_dict
+                count = element_count.get(e, 0)
+                obj_dict[team].append(count)
 
-    # Build 3d map
-    nd_map = np.zeros([l, b, NUM_CHANNEL], dtype = int)
-    for elem in CHANNEL.keys():
-        ch = CHANNEL[elem]
-        const = REPRESENT[elem]
-        if elem in new_map:
-            nd_map[new_map==elem,ch] = const
+                # Refill agent's team color in static map and env
+                loc = new_map==e
+                self.current_map_static[loc] = team
+                agent_locs[e] = np.argwhere(loc)
+                env[loc, CHANNEL[team]] = 1
 
-    for team, elems in keys.items():
-        for e in elems:
-            count = element_count.get(e, 0)
-            obj_dict[team].append(count)
+        return obj_dict, agent_locs
 
-            loc = new_map==e
-            static_map[loc] = team
-
-            agent_locs[e] = np.argwhere(loc)
-
-            nd_map[loc, CHANNEL[team]] = REPRESENT[team]
-
-    return nd_map, static_map, obj_dict, agent_locs
-
+    @property
+    def space(self):
+        return self._shape

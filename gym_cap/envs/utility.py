@@ -1,20 +1,39 @@
 import numpy as np
 import collections
 
-def centering(obs, agents, H, W, padder=[0,0,0,1,0,0,0]):
-    olx, oly, ch = obs.shape
-    padder = padder[:ch]
-    #padder = [0] * ch; padder[3] = 1
-    #if len(padder) >= 10: padder[7] = 1
+def state_centering(state, centers, radius):
+    """ Translating state to specified coordinates
 
-    cx, cy = (W-1)//2, (H-1)//2
-    states = np.zeros([len(agents), H, W, len(padder)])
-    states[:,:,:] = np.array(padder)
-    for idx, agent in enumerate(agents):
-        x, y = agent.get_loc()
-        states[idx,max(cx-x,0):min(cx-x+olx,W),max(cy-y,0):min(cy-y+oly,H),:] = obs
+    Given the state [dx, dy, channel] and n origins,
+    method returns [n, range*2-1, range*2-1, channel] size
+    translated spaces.
 
-    return states
+    * State must be padded previously
+
+    Parameters
+    ----------
+
+    state : [numpy.ndarray] 
+        The size of [dx, dy, channel] array representing the state.
+    centers : [list] 
+        Origins coordinates in integer tuples (x,y)
+    radius : int
+        Range of view.
+        Must be an odd number
+
+    Returns
+    -------
+    It returns centered states of numpy.ndarray.
+    """
+
+    assert radius % 2, "Centering range must be an odd number"
+
+    dx, dy, ch = state.shape
+    states = []
+    for x, y in centers:
+        states.append(state[x-radius:x+radius+1, y-radius:y+radius+1, :])
+
+    return np.stack(states)
 
 class Stacked_state:
     def __init__(self, keep_frame, axis):
