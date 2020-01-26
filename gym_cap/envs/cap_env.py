@@ -42,8 +42,11 @@ class CapEnv(gym.Env):
         """
         self.seed()
         self.viewer = None
-        self.config_path = None
-        self._parse_config()
+
+        # Default configuration
+        config_path = pkg_resources.resource_filename(__name__, 'default.ini')
+        self.config_path = config_path
+        self._parse_config(config_path)
 
         self.blue_memory = np.zeros((map_size, map_size), dtype=bool)
         self.red_memory = np.zeros((map_size, map_size), dtype=bool)
@@ -131,16 +134,9 @@ class CapEnv(gym.Env):
                         bool, int, bool, bool, bool, str, int]
             }
 
-        if config_path is None:
-            if self.config_path is not None:
-                config_path = self.config_path
-                return
-            else:
-                # Default configuration
-                config_path = pkg_resources.resource_filename(__name__, 'default.ini')
-                self.config_path = config_path
-        else:
-            self.config_path = config_path
+        if config_path is None and self.config_path is not None:
+            return
+        self.config_path = config_path
 
         config = configparser.ConfigParser()
         config.read(config_path)
