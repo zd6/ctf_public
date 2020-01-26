@@ -71,9 +71,6 @@ class Agent:
 
         # If agent is dead, dont move
         if not self.isAlive:
-            dead_channel = CHANNEL[DEAD]
-            if env[self.x][self.y][dead_channel]:
-                env[self.x][self.y][dead_channel] = 0
             env[self.x][self.y][self.channel] = 0
             return
 
@@ -84,7 +81,7 @@ class Agent:
             self.delay_count = 0
 
         channel = self.channel
-        collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level]))
+        collision_channels = list(set(CHANNEL[elem] for elem in LEVEL_GROUP[self.level] if CHANNEL[elem] < NUM_CHANNEL))
         
         if action == "X":
             if self.clocking:

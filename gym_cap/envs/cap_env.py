@@ -557,10 +557,10 @@ class CapEnv(gym.Env):
             }
 
 
-        if self.mode == 'continue' and isDone:
-            # Case where the game is supposed to run continuously
-            self.reset()
-            return self.get_obs_blue, reward, False, info
+        #if self.mode == 'continue' and isDone:
+        #    # Case where the game is supposed to run continuously
+        #    self.reset()
+        #    return self.get_obs_blue, reward, False, info
 
         
         return self.get_obs_blue, reward, isDone, info
@@ -1047,10 +1047,9 @@ class CapEnv(gym.Env):
         swap = set([CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
                 CHANNEL[TEAM1_UGV2], CHANNEL[TEAM1_UGV3], CHANNEL[TEAM1_UGV4]])
 
-        for ch in swap:
-            view[:,:,ch] *= -1
+        swap = np.array([0,1,3,2,4,6,5,8,7,10,9])
 
-        return view
+        return view[:,:,swap]
 
     @property
     def get_obs_blue_render(self):

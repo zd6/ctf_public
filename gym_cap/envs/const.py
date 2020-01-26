@@ -57,7 +57,7 @@ TEAM1_UGV4 = 20
 TEAM2_UGV4 = 21
 
 # Element Channel
-NUM_CHANNEL = 10
+NUM_CHANNEL = 11
 CHANNEL = {
         UNKNOWN: 0,
         FOG: 1,

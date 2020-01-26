@@ -85,7 +85,7 @@ class Board(spaces.Space):
         if type(shape) is int:
             shape = tuple(shape, shape)
         self._shape = (shape[0], shape[1], NUM_CHANNEL)
-        dim = np.amin(shape)
+        dim = np.amin(shape[:2])
 
         # PRE-COUNT ELEMENT
         blue_split_ind, red_split_ind = [num_flag[0]], [num_flag[1]]
@@ -106,13 +106,13 @@ class Board(spaces.Space):
         warning_max = 20
         while warning_counter < warning_max: # Continue until all elements are placed
             # CH 1 : ZONE (included in static)
-            zone = np.ones(shape, dtype=int)  # 1 for blue, 2 for red, 0 for obstacle
+            zone = np.ones(shape, dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
             if island_zone:
                 sx, sy = np_random.randint(dim//2, 4*dim//5, [2])
                 lx, ly = np_random.randint(0, dim - max(sx,sy)-1, [2])
-                zone[lx:lx+sx, ly:ly+sy] = 2
+                zone[lx:lx+sx, ly:ly+sy] = -1
             else:
-                zone[:,0:dim//2] = 2
+                zone[:,0:dim//2] = -1
             if 0.5 < np_random.rand():
                 zone = -zone  # Reverse for equal expectation
 
@@ -132,7 +132,7 @@ class Board(spaces.Space):
             #blue_indices = np_random.choice(len(blue_pool), total_blue, replace=False)
             #blue_coord = np.take(blue_pool, blue_indices, axis=0)
 
-            red_pool = np.argwhere(zone==2)
+            red_pool = np.argwhere(zone==-1)
             if len(red_pool) < total_red:
                 warning_counter += 1
                 warnings.warn("Map is too small to allocate all elements.")
@@ -142,14 +142,18 @@ class Board(spaces.Space):
         if warning_counter == warning_max:
             raise InterruptedError("Map size is too small. Warning counter reached max")
         env[:,:,CHANNEL[TEAM1_BACKGROUND]] = zone==1
-        env[:,:,CHANNEL[TEAM2_BACKGROUND]] = zone==2
+        env[:,:,CHANNEL[TEAM2_BACKGROUND]] = zone==-1
         env[:,:,CHANNEL[OBSTACLE]] = zone==0
 
         # Elements
         element_locs = {}
-        blue_coords = np.split(blue_pool, blue_split_ind)
-        red_coords = np.split(red_pool, red_split_ind)
-        for name, blue_coord, red_coord in zip(names, blue_coords, red_coords):
+        blue_idx = np.random.permutation(np.arange(len(blue_pool)))
+        red_idx = np.random.permutation(np.arange(len(red_pool)))
+        blue_coords_idx = np.split(blue_idx, blue_split_ind)
+        red_coords_idx = np.split(red_idx, red_split_ind)
+        for name, blue_idx, red_idx in zip(names, blue_coords_idx, red_coords_idx):
+            blue_coord = blue_pool[blue_idx]
+            red_coord = red_pool[red_idx]
             if name == 'flag':
                 team1_id = TEAM1_FLAG
                 team2_id = TEAM2_FLAG
@@ -183,11 +187,11 @@ class Board(spaces.Space):
         element_locs.pop(TEAM1_FLAG, None) 
         element_locs.pop(TEAM2_FLAG, None) 
 
-        env_static[env[:,:,CHANNEL[TEAM1_FLAG]]] = TEAM1_FLAG
-        env_static[env[:,:,CHANNEL[TEAM2_FLAG]]] = TEAM2_FLAG
         env_static[env[:,:,CHANNEL[TEAM1_BACKGROUND]]] = TEAM1_BACKGROUND
         env_static[env[:,:,CHANNEL[TEAM2_BACKGROUND]]] = TEAM2_BACKGROUND
         env_static[env[:,:,CHANNEL[OBSTACLE]]] = OBSTACLE
+        env_static[env[:,:,CHANNEL[TEAM1_FLAG]]] = TEAM1_FLAG
+        env_static[env[:,:,CHANNEL[TEAM2_FLAG]]] = TEAM2_FLAG
 
         return env, env_static, element_locs
 
