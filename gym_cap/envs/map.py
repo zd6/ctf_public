@@ -51,7 +51,7 @@ class Board(spaces.Space):
             self.current_map_static = static_state
             self.current_id = 0
         else:
-            raise NotImplementedError, 'Only random mode available'
+            raise NotImplementedError('Only random mode available')
 
         return obj_loc
 
@@ -139,7 +139,7 @@ class Board(spaces.Space):
 
             break
         if warning_counter == warning_max:
-            raise InterruptedError, "Map size is too small. Warning counter reached max"
+            raise InterruptedError("Map size is too small. Warning counter reached max")
         env[:,:,CHANNEL[TEAM1_BACKGROUND]] = zone==1
         env[:,:,CHANNEL[TEAM2_BACKGROUND]] = zone==2
         env[:,:,CHANNEL[OBSTACLE]] = zone==0
@@ -168,7 +168,7 @@ class Board(spaces.Space):
                 team1_id = TEAM1_UGV4
                 team2_id = TEAM2_UGV4
             else:
-                raise NotImplementedError, "Element Type is not defined"
+                raise NotImplementedError("Element Type is not defined")
             team1_ch = CHANNEL[team1_id]
             team2_ch = CHANNEL[team2_id]
             element_locs[team1_ch] = blue_coord.tolist()
