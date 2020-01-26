@@ -239,7 +239,7 @@ class CapEnv(gym.Env):
         self._radial = (X-w)**2 + (Y-h)**2
 
         # INITIALIZE TEAM
-        self._team_blue, self._team_red = self._construct_agents(agent_locs, self._static_map)
+        self._team_blue, self._team_red = self._construct_agents(agent_locs)
         self._agents = self._team_blue+self._team_red
 
 
