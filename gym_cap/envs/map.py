@@ -172,8 +172,8 @@ class Board(spaces.Space):
                 raise NotImplementedError("Element Type is not defined")
             team1_ch = CHANNEL[team1_id]
             team2_ch = CHANNEL[team2_id]
-            element_locs[team1_ch] = blue_coord.tolist()
-            element_locs[team2_ch] = red_coord.tolist()
+            element_locs[team1_id] = blue_coord.tolist()
+            element_locs[team2_id] = red_coord.tolist()
             if team1_ch < NUM_CHANNEL:
                 for y, x in blue_coord:
                     env[y,x,team1_ch] = 1

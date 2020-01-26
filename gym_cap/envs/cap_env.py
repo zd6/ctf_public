@@ -201,7 +201,7 @@ class CapEnv(gym.Env):
         if map_size is None:
             map_size = self.map_size
         if type(map_size) is int:
-            map_size = tuple(map_size, map_size)
+            map_size = (map_size, map_size)
 
         # INITIALIZE MAP
         self.custom_board = custom_board
@@ -984,7 +984,7 @@ class CapEnv(gym.Env):
         #   uav_observation(numpy): [num_uav, 2*radius-1, 2*radius-1, channel]
         #   ugv_observation(numpy): [num_ugv, 2*radius-1, 2*radius-1, channel]
 
-        radius = self.map_size-1
+        radius = np.amax(self.map_size)-1
         view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
