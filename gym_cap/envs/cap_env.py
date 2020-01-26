@@ -48,8 +48,8 @@ class CapEnv(gym.Env):
         self.config_path = config_path
         self._parse_config(config_path)
 
-        self.blue_memory = np.zeros((map_size, map_size), dtype=bool)
-        self.red_memory = np.zeros((map_size, map_size), dtype=bool)
+        self.blue_memory = np.zeros(map_size, dtype=bool)
+        self.red_memory = np.zeros(map_size, dtype=bool)
 
         self._policy_blue = None
         self._policy_red = None
@@ -151,7 +151,7 @@ class CapEnv(gym.Env):
                         value = config.getint(section, option)
                     elif datatype is float:
                         value = config.getfloat(section, option)
-                    elif dataype is str:
+                    elif datatype is str:
                         value = config.get(section, option)
                     else:
                         raise Exception('Unsupported datatype')
