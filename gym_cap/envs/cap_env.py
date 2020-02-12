@@ -158,7 +158,7 @@ class CapEnv(gym.Env):
                     setattr(self, option, value)
         except Exception as e:
             print(e)
-            raise Exception('Configuration import fails: recheck whether all config variables are included')
+            #raise Exception('Configuration import fails: recheck whether all config variables are included')
 
     def reset(self, map_size=None, policy_blue=None, policy_red=None,
             custom_board=None, config_path=None, **kwargs):
