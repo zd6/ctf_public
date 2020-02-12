@@ -26,13 +26,7 @@ Look at cap_test.py file for examples and run it to test if the environment work
 For installation:
 
 ``` sh
-pip install git+https://github.com/raide-project/ctf_public
-```
-
-For update:
-
-``` sh
-pip install -U git+https://github.com/raide-project/ctf_public
+pip install gym-cap
 ```
 
 ## Policy Rule

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name="gym_cap",
-      version="1.0.0",
+      version="0.1.0",
       author="DOs, skim449",
       license="MIT",
       url="https://https://github.com/raide-project/ctf_public",
