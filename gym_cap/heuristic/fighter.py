@@ -1,5 +1,5 @@
 import numpy as np
-from policy.policy import Policy
+from .policy import Policy
 from gym_cap.envs.const import *
 
 

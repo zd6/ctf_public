@@ -2,8 +2,7 @@
 import gym
 import gym_cap
 import numpy as np
-import policy.roomba
-import policy.random
+import gym_cap.heuristic as policy
 
 # Linking Gym with Gazebo
 import rospy, tf, os

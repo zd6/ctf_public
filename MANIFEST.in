@@ -1,4 +1,3 @@
 include LICENSE
 include README.md
-include requirements.txt
-include gym_cap/default.ini
+include gym_cap/envs/default.ini

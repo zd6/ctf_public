@@ -12,7 +12,7 @@ from tqdm import tqdm
 from tqdm import *
 
 # modules needed to generate policies
-import policy
+import gym_cap.heuristic as policy
 
 description = "Evaluate two different policy."
 parser = argparse.ArgumentParser(description=description)

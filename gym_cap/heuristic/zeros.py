@@ -1,4 +1,5 @@
-"""Random agents policy generator.
+
+"""Stationary
 
 This module demonstrates an example of a simple heuristic policy generator
 for Capture the Flag environment.
@@ -6,14 +7,14 @@ for Capture the Flag environment.
 
 DOs/Denis Osipychev
     http://www.denisos.com
+
 """
 
-import numpy as np
+#import numpy as np
 
-from policy.policy import Policy
+from .policy import Policy
 
-
-class Random(Policy):
+class Zeros(Policy):
     """Policy generator class for CtF env.
     
     This class can be used as a template for policy generator.
@@ -21,12 +22,8 @@ class Random(Policy):
     
     Methods:
         gen_action: Required method to generate a list of actions.
+        patrol: Private method to control a single unit.
     """
-    
-    def __init__(self):
-        super().__init__()
-        self.random = np.random
-        
     def gen_action(self, agent_list, observation, free_map=None):
         """Action generation method.
         
@@ -43,7 +40,10 @@ class Random(Policy):
         """
         action_out = []
         
-        for i in agent_list:
-            action_out.append(self.random.randint(0, 5)) # choose random action
+        if free_map is not None: self.free_map = free_map
+        
+        for idx,agent in enumerate(agent_list):
+            action_out.append(0)
         
         return action_out
+

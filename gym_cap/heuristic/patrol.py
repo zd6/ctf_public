@@ -14,7 +14,7 @@ import random
 import numpy as np
 import gym_cap.envs.const as const
 
-from policy.policy import Policy
+from .policy import Policy
 
 class Patrol(Policy):
     """Policy generator class for CtF env.

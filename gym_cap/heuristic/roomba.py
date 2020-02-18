@@ -11,7 +11,7 @@ DOs/Denis Osipychev
 import numpy as np
 from collections import defaultdict
 
-from policy.policy import Policy
+from .policy import Policy
 
 class Roomba(Policy):
     """Policy generator class for CtF env.

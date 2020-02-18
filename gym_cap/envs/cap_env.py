@@ -2,6 +2,8 @@ import __future__
 
 import io
 import configparser
+import os
+import pkg_resources
     
 import random
 import sys
@@ -15,7 +17,7 @@ import numpy as np
 
 from .agent import *
 from .create_map import gen_random_map, custom_map
-from gym_cap.envs import const
+from .const import *
 
 """
 Requires that all units initially exist in home zone.
@@ -39,7 +41,11 @@ class CapEnv(gym.Env):
         """
         self.seed()
         self.viewer = None
-        self._parse_config()
+
+        # Default Configuration
+        config_path = pkg_resources.resource_filename(__name__, 'default.ini')
+        self.config_path = config_path
+        self._parse_config(config_path)
 
         self.blue_memory = np.zeros((map_size, map_size), dtype=bool)
         self.red_memory = np.zeros((map_size, map_size), dtype=bool)
@@ -110,7 +116,9 @@ class CapEnv(gym.Env):
                     'STOCH_ATTACK_BIAS',
                     'STOCH_ZONES',
                     'RED_PARTIAL',
-                    'BLUE_PARTIAL'
+                    'BLUE_PARTIAL',
+                    'MAP_MODE',
+                    'MAP_POOL_SIZE',
                     ]
             }
         config_datatype = {
@@ -122,32 +130,34 @@ class CapEnv(gym.Env):
                 'communication': [bool, bool, int, float],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
-                        bool, int, bool, bool, bool]
+                        bool, int, bool, bool, bool, str, int]
             }
 
-        if config_path is None:
-            # Default configuration
-            get = lambda key, name: getattr(const, name)
-        else:
-            # Custom configuration
-            config = configparser.ConfigParser()
-            config.read(config_path)
-            get = lambda key, name: config.get(key, name, fallback=getattr(const, name))
+        if config_path is None and self.config_path is not None:
+            return
+        self.config_path = config_path
+        config = configparser.ConfigParser()
+        config.read(config_path)
 
-        try:
-            # Set environment attributes
-            for section in config_param:
-                for name, datatype in zip(config_param[section], config_datatype[section]):
-                    value = get(section, name)
-                    if datatype is bool:
-                        if type(value) == str:
-                            value = True if value == 'True' else False
-                    elif datatype is int or datatype is float:
-                        value = datatype(value)
-                    setattr(self, name, value)
-        except Exception as e:
-            print(e)
-            raise Exception('Configuration import fails: recheck whether all config variables are included')
+        # Set environment attributes
+        for section in config_param:
+            for option, datatype in zip(config_param[section], config_datatype[section]):
+                if not config.has_section(section) or not config.has_option(section, option):
+                    if hasattr(self, option):
+                        continue
+                    else:
+                        raise KeyError('Configuration import fails: double check whether all config variables are included')
+                if datatype is bool:
+                    value = config.getboolean(section, option)
+                elif datatype is int:
+                    value = config.getint(section, option)
+                elif datatype is float:
+                    value = config.getfloat(section, option)
+                elif datatype is str:
+                    value = config.get(section, option)
+                else:
+                    raise Exception('Unsupported datatype')
+                setattr(self, option, value)
 
     def reset(self, map_size=None, mode="random", policy_blue=None, policy_red=None,
             custom_board=None, config_path=None):
@@ -184,11 +194,11 @@ class CapEnv(gym.Env):
         self.custom_board = custom_board
         if custom_board is None:  # Random Generated Map
             map_obj = {
-                    (const.TEAM1_UGV, const.TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
-                    (const.TEAM1_UAV, const.TEAM2_UAV): (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
-                    (const.TEAM1_UGV2, const.TEAM2_UGV2): (self.NUM_BLUE_UGV2, self.NUM_RED_UGV2),
-                    (const.TEAM1_UGV3, const.TEAM2_UGV3): (self.NUM_BLUE_UGV3, self.NUM_RED_UGV3),
-                    (const.TEAM1_UGV4, const.TEAM2_UGV4): (self.NUM_BLUE_UGV4, self.NUM_RED_UGV4)
+                    (TEAM1_UGV, TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
+                    (TEAM1_UAV, TEAM2_UAV): (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
+                    (TEAM1_UGV2, TEAM2_UGV2): (self.NUM_BLUE_UGV2, self.NUM_RED_UGV2),
+                    (TEAM1_UGV3, TEAM2_UGV3): (self.NUM_BLUE_UGV3, self.NUM_RED_UGV3),
+                    (TEAM1_UGV4, TEAM2_UGV4): (self.NUM_BLUE_UGV4, self.NUM_RED_UGV4)
                 }
 
             self._env, self._static_map, agent_locs = gen_random_map('map',
@@ -236,7 +246,7 @@ class CapEnv(gym.Env):
 
         if self.INDIV_MEMORY == "fog":
             for agent in self._team_blue + self._team_red:
-                agent.memory[:] = const.UNKNOWN
+                agent.memory[:] = UNKNOWN
                 agent.memory_mode = "fog"
 
         # INITIALIZE TRAJECTORY (DEBUG)

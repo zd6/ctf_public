@@ -1,7 +1,7 @@
 import numpy as np
 import gym_cap.envs.const as const
 import math
-from policy.policy import Policy
+from .policy import Policy
 
 class Spiral(Policy):
 
