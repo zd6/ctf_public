@@ -7,7 +7,6 @@ setup(
     author="DOs, skim449",
     url="https://https://github.com/raide-project/ctf_public",
     packages=["gym_cap", "gym_cap.envs", "gym_cap.heuristic"],
-    long_description=open('README.md').read(),
     zip_safe=False,
     include_package_data=True,
     install_requires = [
