@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="gym_cap",
-    version="0.1.1",
+    version="0.1.1.1",
     license="MIT",
     author="DOs, skim449",
     url="https://https://github.com/raide-project/ctf_public",
@@ -11,7 +11,6 @@ setup(
     include_package_data=True,
     install_requires = [
         "gym>=0.16.0",
-        "pygame>=1.3.2",
         "numpy>=1.18.1"
         ]
 )
