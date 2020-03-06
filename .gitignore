@@ -23,7 +23,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 *.xml
 *.iml
@@ -32,6 +31,7 @@ MANIFEST
 
 ## Configuration
 *config.ini
+configurations/
 
 .DS_Store
 

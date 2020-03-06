@@ -174,7 +174,7 @@ class Policy:
         elif team == const.TEAM2_BACKGROUND:
             flag_id = const.TEAM1_FLAG
         loc = np.argwhere(self.free_map==flag_id)
-        if len(loc == 0):
+        if len(loc) == 0:
             loc = None
         else:
             loc = loc[0]

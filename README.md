@@ -1,16 +1,38 @@
-# Preparation
+# Capture the Flag Gridworld Environment (gym-cap)
 
-Look at [demo run](demo/cap_test.py) script for examples and run it to test if the environment works. Feel free to use the provided policies in heuristic module to develop your own one.
+This gridworld environment is specifically designed to simulate the multi-agent adversarial environment.
+The environment mimics the capture the flag setup, where the main objective is to capture the enemy's flag as soon as possible.
+The game also ends when all the enemy's agents are captured.
+The game has many stochastic transitions, such as the interaction between agents, territorial advantage, or random initialization of the map.
+A reinforcement learning implementation can be found [here](https://github.com/raide-project/ctf_RL).
 
 ## Package Install
 
-For installation:
+The package and required dependencies can be installed using pip:
 
 ``` sh
 pip install gym-cap
 ```
 
-## Policy Rule
+## Requirements
+
+All the dependencies will be installed if the package is installed with pip.
+If the package is installed using source code, following packages are required:
+
+- Python 3.7+
+- Numpy 1.18+
+- OpenAI Gym 0.16+
+
+* Gym might require additional packages depending on OS.
+
+## Preparation
+
+Run the example code [(demo run)](demo/test.py) to test if the package is installed correctly.
+Basic policies are provided in `gym_cap.heuristic`.
+
+## Environment Description
+
+![Rendering Example](figures/rendering_example.png)
 
 - The environment takes input as a tuple.
     - The number of element in tuple must match the total number of blue agent. (UAV+UGB)
@@ -18,21 +40,64 @@ pip install gym-cap
 - If UAV is included, the UAV's action comes __in front__ of UGV's action.
     - ex) To make UAV to hover (fix): action = [0, 0] + [UGV's action]
 
-## Debugging Utilities
+## Custom Policy
 
-- Playing in customized board: 
+To control the __blue agent__, the action can be specified at each step `env.step([0,3,2,4])`.
+A custom policy could also be created in module to play the game. 
+The example of custom policy can be found in [(custom policy)](demo/demo_policy.py).
 
-By passing the directory of custom board in text file, environment will use provided board setting to override board terrain and number of agents.
+## Environment Configurations
+
+### Environment Parameters
+
+The environment is mostly fixed with the default configuration parameters, but some parameters are possible to be modified.
+When the environment method `env.reset()` is called, the environment is initialized as same as the previous configuration.
+By passing `config_path` argument, prescribed parameters could be modified.
+
+cap_test.py
+``` py
+observation = env.reset(config_path='custom_config.ini')
+```
+
+Here is the example of config file.
+
+custom_config.ini
+``` py
+# Controllable Variables
+
+[elements]
+NUM_BLUE = 4                # number of ground blue agent
+NUM_RED = 4                 # number of ground red agent
+NUM_BLUE_UAV = 2            # number of air blue agent
+NUM_RED_UAV = 2             # number of air red agent
+
+
+[control]
+MAX_STEP = 150              # maximum number of steps in each game
+
+[memory]
+                            # [None, fog]
+TEAM_MEMORY = None          # if set to fog, team observation includes previously visited static environment
+RENDER_TEAM_MEMORY = False  # if set to true, the team memory will be rendered
+
+[settings]
+STOCH_TRANSITIONS = False   # switch drift
+STOCH_TRANSITIONS_EPS = 0.1 # drift rate
+STOCH_ATTACK = True         # switch stochastic interaction between agents
+STOCH_ATTACK_BIAS = 1       # territorial advantage in stochastic interaction
+STOCH_ZONES = False         # randomize map generation. (if custom_board is give, this parameter is ignored)
+BLUE_PARTIAL = True         # switch partial observation for blue
+RED_PARTIAL = True          # switch partial observation for red
+```
+
+### Custom Map
+
+The environment can be re-initialized to custom board by passing the `.txt` file.
+Any board terrain and number of agents will be ignored.
 
 cap_test.py
 ```py
-...
-observation = env.reset(
-    policy_blue=policy.random.PolicyGen(env.get_map, env.get_team_blue),
-    policy_red=policy.random.PolicyGen(env.get_map, env.get_team_red),
-    custom_board='test_maps/board2.txt'
-    )
-...
+observation = env.reset(custom_board='test_maps/board2.txt')
 ```
 
 test_map/board2.txt
@@ -47,78 +112,32 @@ test_map/board2.txt
 1 1 1 0 0 0 1 1 1
 1 1 1 0 0 0 1 1 1
 ```
+
 * board elements are separated by space.
 
+## Advanced Features
 
-- Custom Initialization
-
-The environment is mostly fixed with default configuration numbers, but some numbers are possible to be altered by passing a configuration file.
-
-cap_test.py
-``` py
-...
-observation = env.reset(
-    map_size=20,
-    policy_blue=policy.random.PolicyGen(env.get_map, env.get_team_blue),
-    policy_red=policy.random.PolicyGen(env.get_map, env.get_team_red),
-    config_path='config.ini'
-    )
-...
-```
-
-config.ini
-``` py
-[elements]
-NUM_BLUE=4
-NUM_RED=4
-NUM_UAV=2
-NUM_GRAY=0
-
-[communication]
-COM_GROUND = False
-COM_AIR = False
-COM_DISTANCE = -1    # -1 for infinite distance. Otherwise
-COM_FREQUENCY = 1.0  # Random chance of communication
-
-[memory]
-INDIV_MEMORY = None      # ['None', 'fog', 'Full']
-TEAM_MEMORY = None       # ['None', 'fog', 'Full']
-RENDER_INDIV_MEMORY = False
-RENDER_TEAM_MEMORY = False
-
-[settings]
-STOCH_ATTACK = True
-STOCK_ATTACK_BIAS = 1
-STOCH_ZONES = True
-RL_SUGGESTIONS = False
-STOCH_TRANSITIONS = False
-STOCH_TRANSITIONS_EPS = 0.1
-RED_PARTIAL = False
-BLUE_PARTIAL = False
-```
-
-## Policy Evaluation
-
-cap_eval.py : Testing script analyzes the total rate of win, rate of win by capturing flag, rate of win by killing the other team and plots histogram of the mean score of a team in all episodes. It also prints the mean score, standard deviation of the mean score, total time for all episodes and for one episode and average steps taken per episodes.
-
-Example)
-``` bash
-python cap_eval.py --episode 3000 --blue_policy roomba
-```
-
-### Valid Arguments
-
-- episode: number of iterations to analyze (default: 1000)
-- blue_policy: policy to be implmented for blue team (default: random)
-- red_policy: policy to be implmented for blue team (default: random)
-- num_blue: number of blue ugv agents (default: 4)
-- num_red: number of red ugv agents (default: 4)
-- num_uav: number of uav agents (default: 0)
-- map_size: size of map (default: 20)
-- time_step: maximum number of steps per iteration to be completed by the teams (default: 150)
+### Multi-Agent Communication Settings (work in progress)
 
 ```py
-> python cap_eval.py --episode 50 --blue_policy roomba
+agent.get_obs(self, env, com_ground=False, com_air=False, distance=None, freq=1.0, *args)
+```
+
+The method returns the observation for a specific agent. If communication is allowed between ground or air, observation for that agent is expanded to include vision from other agents.
+
+Parameters:
+
+- com_ground and com_air (boolean): toggle communication between ground/air units. 
+- distance (int): the maximum distance between units for which communication is  
+- freq (0-1.0): the probability that communication goes through    
+
+### Policy Evaluation
+
+The demo script `policy_eval.py` provides basic analysis between two policies.
+
+Example)
+```bash
+$ python policy_eval.py --episode 50 --blue_policy roomba
 
 Episodes Progress Bar
 
@@ -132,15 +151,26 @@ total time: 3.5574886798858643 s
 mean steps: 3318.1
 ```
 
-## Communication Settings
+Valid Arguments:
 
-```py
-def get_obs(self, env, com_ground=False, com_air=False, distance=None, freq=1.0, *args):
-```
+- episode: number of iterations to analyze (default: 1000)
+- blue_policy: policy to be implmented for blue team (default: random)
+- red_policy: policy to be implmented for blue team (default: random)
+- num_blue: number of blue ugv agents (default: 4)
+- num_red: number of red ugv agents (default: 4)
+- num_uav: number of uav agents (default: 0)
+- map_size: size of map (default: 20)
+- time_step: maximum number of steps per iteration to be completed by the teams (default: 150)
 
-The method returns the observation for a specific agent. If communication is allowed between ground or air, observation for that agent is expanded to include vision from other agents.
 
-### Parameters:
-- com_ground and com_air (boolean): toggle communication between ground/air units. 
-- distance (int): the maximum distance between units for which communication is  
-- freq (0<int<1.0): the probability that communication goes through    
+### Advanced Agent Types (work in progress)
+
+### Rendering (work in progress)
+
+### Multi-processing (work in progress)
+
+### Gazebo (work in progress)
+
+## Acknowledgement
+
+## License

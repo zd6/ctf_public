@@ -1,3 +1,4 @@
+from gym_cap.heuristic.policy import Policy
 from gym_cap.heuristic.patrol import Patrol
 from gym_cap.heuristic.roomba import Roomba
 from gym_cap.heuristic.zeros import Zeros

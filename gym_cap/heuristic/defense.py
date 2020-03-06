@@ -55,10 +55,10 @@ class Defense(Policy):
 
         # if map changes then reset the flag location
         # search for a flag until finds it
-        if self.flag_location == None:
+        if self.flag_location is None:
             self.flag_location = self.get_flag_loc(self.team, True) # In case it is partial observation
 
-        if self.flag_location == None: # Random Search
+        if self.flag_location is None: # Random Search
             for idx, agent in enumerate(agent_list):
                 action_out.append(self.random.randint(0, 5))
         else:
@@ -71,7 +71,7 @@ class Defense(Policy):
 
     def flag_approach(self, agent):
         """Generate 1 action for given agent object."""
-        action = move_toward(agent.get_loc(), self.flag_location)
+        action = self.move_toward(agent.get_loc(), self.flag_location)
         if self.random.random() < self.exploration:
             action = self.random.randint(0, 5)
 
