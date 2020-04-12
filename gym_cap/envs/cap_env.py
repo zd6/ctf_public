@@ -306,6 +306,14 @@ class CapEnv(gym.Env):
                     team_red.append(cur_ent)
 
         return team_blue, team_red
+    
+    def _create_vision_mask(self, centers, radii):
+        h, w = self._static_map.shape
+        mask = np.zeros([h,w], dtype=bool)
+        for center, radius in zip(centers, radii):
+            y,x = center
+            mask += (self._radial[h-y:2*h-y, w-x:2*w-x]) <= radius ** 2
+        return ~mask
 
     def _create_observation_mask(self):
         """
@@ -322,14 +330,6 @@ class CapEnv(gym.Env):
             Team to create obs space for
         """
 
-        def create_vision_mask(centers, radii):
-            h, w = self._static_map.shape
-            mask = np.zeros([h,w], dtype=bool)
-            radial = self._radial
-            for center, radius in zip(centers, radii):
-                y,x = center
-                mask += (radial[w-y:2*w-y, h-x:2*h-x]) <= radius ** 2
-            return ~mask
 
         if self.BLUE_PARTIAL:
             centers, radii = [], []
@@ -337,7 +337,7 @@ class CapEnv(gym.Env):
                 if not agent.isAlive: continue
                 centers.append(agent.get_loc())
                 radii.append(agent.range)
-            self._blue_mask = create_vision_mask(centers, radii)
+            self._blue_mask = self._create_vision_mask(centers, radii)
             if self.TEAM_MEMORY == "fog":
                 self.blue_memory = np.logical_and(self.blue_memory, self._blue_mask)
         else:
@@ -349,7 +349,7 @@ class CapEnv(gym.Env):
                 if not agent.isAlive: continue
                 centers.append(agent.get_loc())
                 radii.append(agent.range)
-            self._red_mask = create_vision_mask(centers, radii)
+            self._red_mask = self._create_vision_mask(centers, radii)
             if self.TEAM_MEMORY == "fog":
                 self.red_memory = np.logical_and(self.red_memory, self._red_mask)
         else:
@@ -712,13 +712,13 @@ class CapEnv(gym.Env):
     
             self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=(0, 0, 0))
 
-            self._env_render(self._static_map.T,
+            self._env_render(self._static_map,
                             [7, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_obs_blue_render.T,
+            self._env_render(self.get_obs_blue_render,
                             [7+1.49*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_obs_red_render.T,
+            self._env_render(self.get_obs_red_render,
                             [7+1.49*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
-            self._env_render(self.get_full_state.T,
+            self._env_render(self.get_full_state,
                             [7, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
 
             # ind blue agent memory rendering
@@ -752,13 +752,13 @@ class CapEnv(gym.Env):
                 # blue team memory rendering
                 blue_visited = np.copy(self._static_map)
                 blue_visited[self.blue_memory] = UNKNOWN
-                self._env_render(blue_visited.T,
+                self._env_render(blue_visited,
                                  [7+2.98*SCREEN_H//3, 7], [SCREEN_H//2-10, SCREEN_H//2-10])
 
                 # red team memory rendering    
                 red_visited = np.copy(self._static_map)
                 red_visited[self.red_memory] = UNKNOWN
-                self._env_render(red_visited.T,
+                self._env_render(red_visited,
                                  [7+2.98*SCREEN_H//3, 7+1.49*SCREEN_H//3], [SCREEN_H//2-10, SCREEN_H//2-10])
         else:
             SCREEN_W = 600
@@ -786,100 +786,97 @@ class CapEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
-    def _env_render(self, env, rend_loc, rend_size):
-        map_h = len(env[0])
-        map_w = len(env)
-
-        tile_w = rend_size[0] / len(env)
-        tile_h = rend_size[1] / len(env[0])
+    def _env_render(self, image, rend_loc, rend_size):
+        map_h, map_w = image.shape
+        tile = min(rend_size[0]/map_w, rend_size[1]/map_h)
 
         for y in range(map_h):
             for x in range(map_w):
                 locx, locy = rend_loc
-                locx += x * tile_w
-                locy += y * tile_h
-                cur_color = np.divide(COLOR_DICT[env[x][y]], 255.0)
+                locx += x * tile
+                locy += y * tile
+                cur_color = np.divide(COLOR_DICT[image[y][x]], 255.0)
                 self.viewer.draw_polygon([
                     (locx, locy),
-                    (locx + tile_w, locy),
-                    (locx + tile_w, locy + tile_h),
-                    (locx, locy + tile_h)], color=cur_color)
+                    (locx + tile, locy),
+                    (locx + tile, locy + tile),
+                    (locx, locy + tile)], color=cur_color)
 
-                if env[x][y] == TEAM1_UAV or env[x][y] == TEAM2_UAV:
+                if image[y][x] == TEAM1_UAV or image[y][x] == TEAM2_UAV:
                     self.viewer.draw_polyline([
                         (locx, locy),
-                        (locx + tile_w, locy + tile_h)],
+                        (locx + tile, locy + tile)],
                         color=(0,0,0), linewidth=2)
                     self.viewer.draw_polyline([
-                        (locx + tile_w, locy),
-                        (locx, locy + tile_h)],
-                        color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
+                        (locx + tile, locy),
+                        (locx, locy + tile)],
+                        color=(0,0,0), linewidth=2)#col * tile, row * tile
 
-    def _agent_render(self, env, rend_loc, rend_size, agents=None):
+    def _agent_render(self, image, rend_loc, rend_size, agents=None):
         if agents is None:
             agents = self._team_blue + self._team_red
-        tile_w = rend_size[0] / len(env)
-        tile_h = rend_size[1] / len(env[0])
+        map_h, map_w = image.shape
+        tile = min(rend_size[0]/map_w, rend_size[1]/map_h)
 
         for entity in agents:
             if not entity.isAlive: continue
-            x,y = entity.get_loc()
+            y,x = entity.get_loc()
             locx, locy = rend_loc
-            locx += x * tile_w
-            locy += y * tile_h
+            locx += x * tile
+            locy += y * tile
             cur_color = COLOR_DICT[entity.unit_type]
             cur_color = np.divide(cur_color, 255.0)
             self.viewer.draw_polygon([
                 (locx, locy),
-                (locx + tile_w, locy),
-                (locx + tile_w, locy + tile_h),
-                (locx, locy + tile_h)], color=cur_color)
+                (locx + tile, locy),
+                (locx + tile, locy + tile),
+                (locx, locy + tile)], color=cur_color)
 
             if type(entity) == AerialVehicle:
                 self.viewer.draw_polyline([
                     (locx, locy),
-                    (locx + tile_w, locy + tile_h)],
+                    (locx + tile, locy + tile)],
                     color=(0,0,0), linewidth=2)
                 self.viewer.draw_polyline([
-                    (locx + tile_w, locy),
-                    (locx, locy + tile_h)],
-                    color=(0,0,0), linewidth=2)#col * tile_w, row * tile_h
+                    (locx + tile, locy),
+                    (locx, locy + tile)],
+                    color=(0,0,0), linewidth=2)#col * tile, row * tile
             if type(entity) == GroundVehicle_Tank:
                 self.viewer.draw_polyline([
                     (locx, locy),
-                    (locx + tile_w//2, locy + tile_h)],
+                    (locx + tile//2, locy + tile)],
                     color=(0,0,0), linewidth=3)
                 self.viewer.draw_polyline([
-                    (locx + tile_w//2, locy + tile_h),
-                    (locx + tile_w, locy)],
+                    (locx + tile//2, locy + tile),
+                    (locx + tile, locy)],
                     color=(0,0,0), linewidth=3)
             if type(entity) == GroundVehicle_Scout:
                 self.viewer.draw_polyline([
                     (locx, locy),
-                    (locx + tile_w//2, locy + tile_h)],
+                    (locx + tile//2, locy + tile)],
                     color=(0,0,0), linewidth=3)
                 self.viewer.draw_polyline([
-                    (locx + tile_w//2, locy + tile_h),
-                    (locx + tile_w, locy)],
+                    (locx + tile//2, locy + tile),
+                    (locx + tile, locy)],
                     color=(0,0,0), linewidth=3)
             if type(entity) == GroundVehicle_Clocking:
                 self.viewer.draw_polyline([
                     (locx, locy),
-                    (locx + tile_w//2, locy + tile_h)],
+                    (locx + tile//2, locy + tile)],
                     color=(0,0,0), linewidth=3)
                 self.viewer.draw_polyline([
-                    (locx + tile_w//2, locy + tile_h),
-                    (locx + tile_w, locy)],
+                    (locx + tile//2, locy + tile),
+                    (locx + tile, locy)],
                     color=(0,0,0), linewidth=3)
 
             if entity.marker is not None:
                 ratio = 0.6
                 color = np.divide(entity.marker, 255.0)
                 self.viewer.draw_polygon([
-                    (locx + tile_w * ratio, locy + tile_h * ratio),
-                    (locx + tile_w, locy + tile_h * ratio),
-                    (locx + tile_w, locy + tile_h),
-                    (locx + tile_w * ratio, locy + tile_h)], color=color)
+                    (locx + tile * ratio, locy + tile * ratio),
+                    (locx + tile, locy + tile * ratio),
+                    (locx + tile, locy + tile),
+                    (locx + tile * ratio, locy + tile)], color=color)
 
     def close(self):
         if self.viewer: self.viewer.close()
