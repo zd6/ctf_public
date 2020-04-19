@@ -4,17 +4,10 @@ from .const import *
 
 """
 This module generates a map given desire conditions:
-
-gen_random_map:
-    It creates random map given dimension size, number of obstacles,
-    and number of agents for each team.
-    The background can be divided in half, or random box.
-custom_map:
-    It generates map given a numpy array.
 """
 
-def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
-            map_obj=None):
+def gen_random_map(name, dim, in_seed=None, rand_zones=False, np_random=None,
+            map_obj=None, border_padding=1):
     """
     Method
 
@@ -24,7 +17,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
     ----------
     name        : TODO
         Not used
-    dim         : int
+    dim         : tuple
         Size of the map
     in_seed     : int
         Random seed between 0 and 2**32
@@ -37,6 +30,10 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
         2   : red UGV
         3   : red UAV
         4   : gray units
+    border_padding : int
+        Size of border. Set to 0 to make the map without border.
+        For MARL, the observation is often post-processed to center the agent.
+        Border helps to make the post-processing easier.
     """
 
     # ASSERTION
@@ -56,32 +53,32 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
         total_red += v[1]
 
     # CH 0 : UNKNOWN
-    mask = np.zeros([dim, dim], dtype=int)
+    mask = np.zeros(dim, dtype=int)
 
     can_fit = True
     while can_fit:
         # CH 1 : ZONE (included in static)
-        zone = np.ones([dim, dim], dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
-        static_map = np.zeros([dim, dim], dtype=int)
+        zone = np.ones(dim, dtype=int)  # 1 for blue, -1 for red, 0 for obstacle
+        static_map = np.zeros(dim, dtype=int)
         if rand_zones:
-            sx, sy = np_random.randint(dim//2, 4*dim//5, [2])
-            lx, ly = np_random.randint(0, dim - max(sx,sy)-1, [2])
+            sx, sy = np_random.randint(min(dim)//2, 4*min(dim)//5, [2])
+            lx, ly = np_random.randint(0, min(dim) - max(sx,sy)-1, [2])
             zone[lx:lx+sx, ly:ly+sy] = -1
             static_map[lx:lx+sx, ly:ly+sy] = TEAM2_BACKGROUND
         else:
-            zone[:,0:dim//2] = -1
-            static_map[:,0:dim//2] = TEAM2_BACKGROUND
+            zone[:,0:min(dim)//2] = -1
+            static_map[:,0:min(dim)//2] = TEAM2_BACKGROUND
             #zone = np.rot90(zone)
         if 0.5 < np_random.rand():
             zone = -zone  # Reverse
             static_map = -static_map+1  # TODO: not a safe method to reverse static_map
 
         # CH 3 : OBSTACLE
-        obst = np.zeros([dim, dim], dtype=int)
-        num_obst = int(np.sqrt(dim))
+        obst = np.zeros(dim, dtype=int)
+        num_obst = int(np.sqrt(min(dim)))
         for i in range(num_obst):
-            lx, ly = np_random.randint(0, dim, [2])
-            sx, sy = np_random.randint(0, dim//5, [2]) + 1
+            lx, ly = np_random.randint(0, min(dim), [2])
+            sx, sy = np_random.randint(0, min(dim)//5, [2]) + 1
             zone[lx-sx:lx+sx, ly-sy:ly+sy] = 0
             obst[lx-sx:lx+sx, ly-sy:ly+sy] = REPRESENT[OBSTACLE]
             static_map[lx-sx:lx+sx, ly-sy:ly+sy] = OBSTACLE
@@ -102,7 +99,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
             #raise ValueError(msg) from e
 
     # CH 2 : FLAG (included in static)
-    flag = np.zeros([dim, dim], dtype=int)
+    flag = np.zeros(dim, dtype=int)
 
     blue_flag_coord, blue_coord = blue_coord[:num_flag], blue_coord[num_flag:]
     flag[blue_flag_coord[:,0], blue_flag_coord[:,1]] = 1
@@ -114,7 +111,7 @@ def gen_random_map(name, dim=20, in_seed=None, rand_zones=False, np_random=None,
 
     # Build New Map
     temp = np.zeros_like(mask)
-    new_map = np.zeros([dim, dim, NUM_CHANNEL], dtype=int)
+    new_map = np.zeros([dim[0], dim[1], NUM_CHANNEL], dtype=int)
     new_map[:,:,0] = mask
     new_map[:,:,1] = zone
     new_map[:,:,2] = flag

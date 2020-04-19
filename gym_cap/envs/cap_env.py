@@ -176,9 +176,6 @@ class CapEnv(gym.Env):
 
         """
 
-        # ASSERTIONS
-        assert map_size is None or type(map_size) is int
-
         # WARNINGS
 
         # STORE ARGUMENTS
@@ -188,11 +185,18 @@ class CapEnv(gym.Env):
         if config_path is not None:
             self._parse_config(config_path)
         if map_size is None:
-            map_size = self.map_size[0]
+            map_size = self.map_size
+        elif type(map_size) is int:
+            map_size = (map_size, map_size)
+        elif type(map_size) is list and len(map_size) == 2:
+            map_size = tuple(map_size)
+        else:
+            raise TypeError("Invalid type for map_size")
 
         # INITIALIZE MAP
         self.custom_board = custom_board
-        if custom_board is None:  # Random Generated Map
+        if custom_board is None: 
+            # Random Generated Map
             map_obj = {
                     (TEAM1_UGV, TEAM2_UGV): (self.NUM_BLUE, self.NUM_RED),
                     (TEAM1_UAV, TEAM2_UAV): (self.NUM_BLUE_UAV, self.NUM_RED_UAV),
@@ -203,7 +207,9 @@ class CapEnv(gym.Env):
 
             self._env, self._static_map, agent_locs = gen_random_map('map',
                     map_size, rand_zones=self.STOCH_ZONES, np_random=self.np_random, map_obj=map_obj)
+            self.map_size = map_size
         else:
+            # Read map from existing file
             if type(custom_board) is str:
                 board = np.loadtxt(custom_board, dtype = int, delimiter = " ")
             elif type(custom_board) is np.ndarray:
@@ -213,9 +219,9 @@ class CapEnv(gym.Env):
             self._env, self._static_map, map_obj, agent_locs = custom_map(board)
             self.NUM_BLUE, self.NUM_BLUE_UAV, self.NUM_BLUE_UGV2, self.NUM_BLUE_UGV3, self.NUM_BLUE_UGV4 = map_obj[TEAM1_BACKGROUND]
             self.NUM_RED, self.NUM_RED_UAV, self.NUM_RED_UGV2, self.NUM_RED_UGV3, self.NUM_RED_UGV4 = map_obj[TEAM2_BACKGROUND]
+            self.map_size = tuple(self._static_map.shape)
 
-        self.map_size = tuple(self._static_map.shape)
-        h, w = self._static_map.shape
+        h, w = self.map_size
         Y, X = np.ogrid[:2*h, :2*w]
         self._radial = (X-w)**2 + (Y-h)**2
 
