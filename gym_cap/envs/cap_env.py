@@ -454,7 +454,6 @@ class CapEnv(gym.Env):
                 positions.append((self._team_blue[idx].get_loc(), self._team_blue[idx].isAlive))
             self._blue_trajectory.append(positions)
 
-
             # Move team2
             if self.mode != "sandbox" and self.run_step % self.RED_DELAY == 0:
                 for _ in range(self.RED_STEP):
@@ -491,7 +490,6 @@ class CapEnv(gym.Env):
             if agent.memory_mode == "fog":
                 agent.update_memory(env=self)
         
-
         # Run interaction
         target_agents = [agent for agent in self._agents if agent.isAlive and not agent.is_air]
         survive_list = [agent.isAlive for agent in target_agents]
@@ -541,7 +539,6 @@ class CapEnv(gym.Env):
         reward, red_reward = self._create_reward(num_blue_killed, num_red_killed, mode='instant')
         #reward = self._create_reward(num_blue_killed, num_red_killed)
 
-
         # Pass internal info
         info = {
                 'blue_trajectory': self._blue_trajectory,
@@ -550,13 +547,11 @@ class CapEnv(gym.Env):
                 'red_reward': red_reward
             }
 
-
         if self.mode == 'continue' and isDone:
             # Case where the game is supposed to run continuously
             self.reset()
             return self.get_obs_blue, reward, False, info
 
-        
         return self.get_obs_blue, reward, isDone, info
 
     def _stoch_transition(self, loc):
@@ -571,7 +566,6 @@ class CapEnv(gym.Env):
                 return self.np_random.choice([3,4])
         else:
             raise AttributeError('Unknown transition mod is used: {}'.format(self.STOCH_TRANSITIONS_MOD))
-
 
     def _interaction(self, entity):
         """

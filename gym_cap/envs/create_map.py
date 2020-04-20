@@ -66,8 +66,8 @@ def gen_random_map(name, dim, in_seed=None, rand_zones=False, np_random=None,
             zone[lx:lx+sx, ly:ly+sy] = -1
             static_map[lx:lx+sx, ly:ly+sy] = TEAM2_BACKGROUND
         else:
-            zone[:,0:min(dim)//2] = -1
-            static_map[:,0:min(dim)//2] = TEAM2_BACKGROUND
+            zone[:,0:dim[1]//2] = -1
+            static_map[:,0:dim[1]//2] = TEAM2_BACKGROUND
             #zone = np.rot90(zone)
         if 0.5 < np_random.rand():
             zone = -zone  # Reverse
