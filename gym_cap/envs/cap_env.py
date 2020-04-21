@@ -530,6 +530,7 @@ class CapEnv(gym.Env):
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
             self.blue_win = True
             self.red_eliminated = True
+            blue_point += 0.5
 
         has_alive_entity = False
         for i in self._team_blue:
@@ -553,6 +554,7 @@ class CapEnv(gym.Env):
         if not has_alive_entity:
             self.red_win = True
             self.blue_eliminated = True
+            red_point += 0.5
 
         isDone = self.red_win or self.blue_win or self.run_step > self.MAX_STEP
         if self.run_step > self.MAX_STEP:
@@ -563,7 +565,7 @@ class CapEnv(gym.Env):
 
         # Calculate Reward
         #reward, red_reward = self._create_reward(num_blue_killed, num_red_killed, mode='instant')
-        reward, red_reward = blue_point-0.001, red_point-0.001
+        reward, red_reward = blue_point-red_point-0.001, red_point-blue_point-0.001
 
         # Pass internal info
         info = {
