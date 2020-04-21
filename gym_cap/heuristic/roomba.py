@@ -158,7 +158,7 @@ class Roomba(Policy):
                 action_pool = [0]
             action = np.random.choice(action_pool)
         if np.random.random() < 0.05:
-            action = np.random.randint(6)
+            action = np.random.randint(5)
 
         # Save move
         self.previous_move[agent_id] = action
