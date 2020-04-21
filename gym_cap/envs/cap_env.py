@@ -380,6 +380,8 @@ class CapEnv(gym.Env):
 
         self.run_step += 1
         indiv_action_space = len(self.ACTION)
+        blue_point = 0.0
+        red_point = 0.0
 
         if self.CONTROL_ALL:
             assert self.RED_STEP == 1
@@ -512,8 +514,18 @@ class CapEnv(gym.Env):
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
-                    self.red_win = True
+                    #self.red_win = True
                     self.blue_flag_captured = True
+                    red_point += 1.0
+                    if self.mode == 'continue': # Regenerate
+                        self._static_map[locx][locy] = TEAM1_BACKGROUND
+                        self._env[locx][locy][2] = 0
+                        candidate = np.logical_and(self._env[:,:,1]==REPRESENT[TEAM1_BACKGROUND], self._env[:,:,4]!=REPRESENT[TEAM1_UGV])
+                        coords = np.argwhere(candidate)
+                        print(coords)
+                        newloc = coords[np.random.choice(len(coords))]
+                        self._static_map[newloc[0]][newloc[1]] = TEAM1_FLAG
+                        self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM1_FLAG]
                     
         # TODO Change last condition for multi agent model
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
@@ -526,18 +538,34 @@ class CapEnv(gym.Env):
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM2_FLAG:
-                    self.blue_win = True
+                    #self.blue_win = True
                     self.red_flag_captured = True
+                    blue_point += 1.0
+                    if self.mode == 'continue': # Regenerate
+                        self._static_map[locx][locy] = TEAM2_BACKGROUND
+                        self._env[locx][locy][2] = 0
+                        candidate = np.logical_and(self._env[:,:,1]==REPRESENT[TEAM2_BACKGROUND], self._env[:,:,4]!=REPRESENT[TEAM2_UGV])
+                        coords = np.argwhere(candidate)
+                        print(coords)
+                        newloc = coords[np.random.choice(len(coords))]
+                        self._static_map[newloc[0]][newloc[1]] = TEAM2_FLAG
+                        self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM2_FLAG]
+
                     
         if not has_alive_entity:
             self.red_win = True
             self.blue_eliminated = True
 
         isDone = self.red_win or self.blue_win or self.run_step > self.MAX_STEP
+        if self.run_step > self.MAX_STEP:
+            if blue_point > red_point:
+                self.blue_win = True
+            elif blue_point < red_point:
+                self.red_win = True
 
         # Calculate Reward
-        reward, red_reward = self._create_reward(num_blue_killed, num_red_killed, mode='instant')
-        #reward = self._create_reward(num_blue_killed, num_red_killed)
+        #reward, red_reward = self._create_reward(num_blue_killed, num_red_killed, mode='instant')
+        reward, red_reward = blue_point-0.001, red_point-0.001
 
         # Pass internal info
         info = {
@@ -546,11 +574,6 @@ class CapEnv(gym.Env):
                 'static_map': self._static_map,
                 'red_reward': red_reward
             }
-
-        if self.mode == 'continue' and isDone:
-            # Case where the game is supposed to run continuously
-            self.reset()
-            return self.get_obs_blue, reward, False, info
 
         return self.get_obs_blue, reward, isDone, info
 
@@ -935,8 +958,8 @@ class CapEnv(gym.Env):
 
         if self.BLUE_PARTIAL:
             if self.TEAM_MEMORY == 'fog':
-                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
-                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]])
 
                 mask_represent = REPRESENT[UNKNOWN]
                 mask_channel = CHANNEL[UNKNOWN]
@@ -969,8 +992,8 @@ class CapEnv(gym.Env):
 
         if self.RED_PARTIAL:
             if self.TEAM_MEMORY == 'fog':
-                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_FLAG], CHANNEL[UNKNOWN]])
-                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV]])
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]])
 
                 mask_represent = REPRESENT[UNKNOWN]
                 mask_channel = CHANNEL[UNKNOWN]
