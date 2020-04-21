@@ -162,8 +162,8 @@ def custom_map(new_map):
     # build object count array
     element_count = dict(zip(*np.unique(new_map, return_counts=True)))
 
-    keys = {TEAM1_BACKGROUND: [TEAM1_UGV, TEAM1_UAV, TEAM1_UGV2, TEAM1_UGV3, TEAM1_UGV4],
-            TEAM2_BACKGROUND: [TEAM2_UGV, TEAM2_UAV, TEAM2_UGV2, TEAM2_UGV3, TEAM2_UGV4] }
+    keys = {TEAM1_BACKGROUND: [TEAM1_UAV, TEAM1_UGV, TEAM1_UGV2, TEAM1_UGV3, TEAM1_UGV4],
+            TEAM2_BACKGROUND: [TEAM2_UAV, TEAM2_UGV, TEAM2_UGV2, TEAM2_UGV3, TEAM2_UGV4] }
     obj_dict = {TEAM1_BACKGROUND: [],
                 TEAM2_BACKGROUND: []}
     static_map = np.copy(new_map)
