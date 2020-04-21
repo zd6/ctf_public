@@ -522,7 +522,6 @@ class CapEnv(gym.Env):
                         self._env[locx][locy][2] = 0
                         candidate = np.logical_and(self._env[:,:,1]==REPRESENT[TEAM1_BACKGROUND], self._env[:,:,4]!=REPRESENT[TEAM1_UGV])
                         coords = np.argwhere(candidate)
-                        print(coords)
                         newloc = coords[np.random.choice(len(coords))]
                         self._static_map[newloc[0]][newloc[1]] = TEAM1_FLAG
                         self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM1_FLAG]
@@ -546,7 +545,6 @@ class CapEnv(gym.Env):
                         self._env[locx][locy][2] = 0
                         candidate = np.logical_and(self._env[:,:,1]==REPRESENT[TEAM2_BACKGROUND], self._env[:,:,4]!=REPRESENT[TEAM2_UGV])
                         coords = np.argwhere(candidate)
-                        print(coords)
                         newloc = coords[np.random.choice(len(coords))]
                         self._static_map[newloc[0]][newloc[1]] = TEAM2_FLAG
                         self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM2_FLAG]
