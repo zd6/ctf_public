@@ -482,7 +482,7 @@ class CapEnv(gym.Env):
         self.run_step += 1
 
         return self.get_obs_blue, reward, isDone, info
-    def update_step(self,entity_location):
+    def update_step(self,entity_location,interactions=True):
         """
         Takes an update step in the ctf game where agent locations are updated based on external simulation.
 
@@ -541,42 +541,43 @@ class CapEnv(gym.Env):
             self._update_global_memory(env=self)
 
         # Run interaction
-        survive_list = []
-        for entity in self._team_blue + self._team_red:
-            if not entity.isAlive:
-                survive_list.append(False)
-            else:
-                survive_list.append(self._interaction(entity))
-        for status, entity in zip(survive_list, self._team_blue+self._team_red):
-            entity.isAlive = status
+        if interactions:
+            survive_list = []
+            for entity in self._team_blue + self._team_red:
+                if not entity.isAlive:
+                    survive_list.append(False)
+                else:
+                    survive_list.append(self._interaction(entity))
+            for status, entity in zip(survive_list, self._team_blue+self._team_red):
+                entity.isAlive = status
 
-        # Check win and lose conditions
-        has_alive_entity = False
-        for i in self._team_red:
-            if i.isAlive and not i.is_air:
-                has_alive_entity = True
-                locx, locy = i.get_loc()
-                if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
-                    self.red_win = True
-                    self.blue_flag_captured = True
+            # Check win and lose conditions
+            has_alive_entity = False
+            for i in self._team_red:
+                if i.isAlive and not i.is_air:
+                    has_alive_entity = True
+                    locx, locy = i.get_loc()
+                    if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
+                        self.red_win = True
+                        self.blue_flag_captured = True
 
-        # TODO Change last condition for multi agent model
-        if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
-            self.blue_win = True
-            self.red_eliminated = True
+            # TODO Change last condition for multi agent model
+            if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
+                self.blue_win = True
+                self.red_eliminated = True
 
-        has_alive_entity = False
-        for i in self._team_blue:
-            if i.isAlive and not i.is_air:
-                has_alive_entity = True
-                locx, locy = i.get_loc()
-                if self._static_map[locx][locy] == TEAM2_FLAG:
-                    self.blue_win = True
-                    self.red_flag_captured = True
+            has_alive_entity = False
+            for i in self._team_blue:
+                if i.isAlive and not i.is_air:
+                    has_alive_entity = True
+                    locx, locy = i.get_loc()
+                    if self._static_map[locx][locy] == TEAM2_FLAG:
+                        self.blue_win = True
+                        self.red_flag_captured = True
 
-        if not has_alive_entity:
-            self.red_win = True
-            self.blue_eliminated = True
+            if not has_alive_entity:
+                self.red_win = True
+                self.blue_eliminated = True
 
         # Calculate Reward
         reward = self._create_reward()
