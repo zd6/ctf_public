@@ -506,14 +506,14 @@ class CapEnv(gym.Env):
             for name, loc in entity_location.items():
                 if "T1" in name:
                     if "UAV" in name:
-                        agent_list_blue.insert(0,name)
-                    elif "R" in name:
                         agent_list_blue.append(name)
+                    elif "R" in name:
+                        agent_list_blue.insert(0,name)
                 elif "T2" in name:
                     if "UAV" in name:
-                        agent_list_red.insert(0,name)
-                    elif "R" in name:
                         agent_list_red.append(name)
+                    elif "R" in name:
+                        agent_list_red.insert(0,name)
             self.agent_list = agent_list_blue + agent_list_red
 
         move_list  = []
