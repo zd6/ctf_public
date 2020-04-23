@@ -1023,15 +1023,32 @@ class CapEnv(gym.Env):
         view = np.copy(self._env)
 
         if self.BLUE_PARTIAL:
-            mask_channel = CHANNEL[UNKNOWN]
-            mask_represent = REPRESENT[UNKNOWN]
+            if self.TEAM_MEMORY == 'fog':
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]])
 
-            view[self._blue_mask, :] = 0
-            view[self._blue_mask, mask_channel] = mask_represent
+                mask_represent = REPRESENT[UNKNOWN]
+                mask_channel = CHANNEL[UNKNOWN]
+                fog_represent = REPRESENT[FOG]
+                fog_channel = CHANNEL[FOG]
+
+                for ch in memory_channel:
+                    view[self.blue_memory, ch] = 0
+                for ch in immediate_channel:
+                    view[self._blue_mask, ch] = 0
+                view[self._blue_mask, mask_channel] = mask_represent
+                view[self.blue_memory, fog_channel] = fog_represent
+            else:
+                mask_channel = CHANNEL[UNKNOWN]
+                mask_represent = REPRESENT[UNKNOWN]
+
+                view[self._blue_mask, :] = 0
+                view[self._blue_mask, mask_channel] = mask_represent
 
         for entity in self._team_red:
             if not entity.is_visible:
-                view[entity.get_loc(),entity.channel] = 0
+                x, y = entity.get_loc()
+                view[x, y, entity.channel] = 0
 
         return view
 
@@ -1040,15 +1057,32 @@ class CapEnv(gym.Env):
         view = np.copy(self._env)
 
         if self.RED_PARTIAL:
-            mask_represent = REPRESENT[UNKNOWN]
-            mask_channel = CHANNEL[UNKNOWN]
+            if self.TEAM_MEMORY == 'fog':
+                memory_channel = np.array([CHANNEL[OBSTACLE], CHANNEL[TEAM1_BACKGROUND], CHANNEL[UNKNOWN]])
+                immediate_channel = np.array([CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG]])
 
-            view[self._red_mask, :] = 0
-            view[self._red_mask, mask_channel] = mask_represent
+                mask_represent = REPRESENT[UNKNOWN]
+                mask_channel = CHANNEL[UNKNOWN]
+                fog_represent = REPRESENT[FOG]
+                fog_channel = CHANNEL[FOG]
+
+                for ch in memory_channel:
+                    view[self.red_memory, ch] = 0
+                for ch in immediate_channel:
+                    view[self._red_mask, ch] = 0
+                view[self._red_mask, mask_channel] = mask_represent
+                view[self.red_memory, fog_channel] = fog_represent
+            else:
+                mask_channel = CHANNEL[UNKNOWN]
+                mask_represent = REPRESENT[UNKNOWN]
+
+                view[self._red_mask, :] = 0
+                view[self._red_mask, mask_channel] = mask_represent
 
         for entity in self._team_blue:
             if entity.is_visible:
-                view[entity.get_loc(),entity.channel] = 0
+                x, y = entity.get_loc()
+                view[x, y, entity.channel] = 0
 
         # Change red's perspective same as blue
         swap = set([CHANNEL[TEAM1_BACKGROUND], CHANNEL[TEAM1_UGV], CHANNEL[TEAM1_UAV], CHANNEL[TEAM1_FLAG],
