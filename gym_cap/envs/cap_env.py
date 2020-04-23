@@ -673,7 +673,7 @@ class CapEnv(gym.Env):
                 self.blue_eliminated = True
 
         # Calculate Reward
-        reward = self._create_reward()
+        reward = 0 #self._create_reward()
 
         isDone = self.red_win or self.blue_win
 
