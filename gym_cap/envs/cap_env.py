@@ -271,6 +271,7 @@ class CapEnv(gym.Env):
         # Necessary for human mode
         self.first = True
         self.run_step = 0  # Number of step of current episode
+        self.is_done = False
 
         return self.get_obs_blue
 
@@ -377,6 +378,16 @@ class CapEnv(gym.Env):
             decides if the game is over
             info    :
         """
+
+        if self.is_done:
+            print('done frame')
+            info = {
+                    'blue_trajectory': self._blue_trajectory,
+                    'red_trajectory': self._red_trajectory,
+                    'static_map': self._static_map,
+                    'red_reward': 0
+                }
+            return self.get_obs_blue, 0, self.is_done, info
 
         self.run_step += 1
         indiv_action_space = len(self.ACTION)
@@ -514,7 +525,6 @@ class CapEnv(gym.Env):
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM1_FLAG:  # TEAM 1 == BLUE
-                    #self.red_win = True
                     self.blue_flag_captured = True
                     red_point += 1.0
                     if self.mode == 'continue': # Regenerate
@@ -525,12 +535,13 @@ class CapEnv(gym.Env):
                         newloc = coords[np.random.choice(len(coords))]
                         self._static_map[newloc[0]][newloc[1]] = TEAM1_FLAG
                         self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM1_FLAG]
+                    else:
+                        self.red_win = True
                     
         # TODO Change last condition for multi agent model
         if not has_alive_entity and self.mode != "sandbox" and self.mode != "human_blue":
             self.blue_win = True
             self.red_eliminated = True
-            blue_point += 0.5
 
         has_alive_entity = False
         for i in self._team_blue:
@@ -538,7 +549,6 @@ class CapEnv(gym.Env):
                 has_alive_entity = True
                 locx, locy = i.get_loc()
                 if self._static_map[locx][locy] == TEAM2_FLAG:
-                    #self.blue_win = True
                     self.red_flag_captured = True
                     blue_point += 1.0
                     if self.mode == 'continue': # Regenerate
@@ -549,15 +559,16 @@ class CapEnv(gym.Env):
                         newloc = coords[np.random.choice(len(coords))]
                         self._static_map[newloc[0]][newloc[1]] = TEAM2_FLAG
                         self._env[newloc[0]][newloc[1]][2] = REPRESENT[TEAM2_FLAG]
-
+                    else:
+                        self.blue_win = True
                     
         if not has_alive_entity:
             self.red_win = True
             self.blue_eliminated = True
-            red_point += 0.5
 
-        isDone = self.red_win or self.blue_win or self.run_step > self.MAX_STEP
-        if self.run_step > self.MAX_STEP:
+        #self.is_done = self.red_win or self.blue_win or self.run_step > self.MAX_STEP
+        if self.run_step >= self.MAX_STEP:
+            self.is_done = True
             if blue_point > red_point:
                 self.blue_win = True
             elif blue_point < red_point:
@@ -575,7 +586,7 @@ class CapEnv(gym.Env):
                 'red_reward': red_reward
             }
 
-        return self.get_obs_blue, reward, isDone, info
+        return self.get_obs_blue, reward, self.is_done, info
 
     def _stoch_transition(self, loc):
         if self.STOCH_TRANSITIONS_MOD == 'random':
