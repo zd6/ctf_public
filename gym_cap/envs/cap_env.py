@@ -127,7 +127,7 @@ class CapEnv(gym.Env):
                         int, int,
                         int, int],
                 'control': [bool, int, int, int, int, int],
-                'communication': [bool, bool, int, float],
+                'communication': [bool, bool, int, int],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
                         bool, int, bool, bool, bool, str, int]
@@ -249,11 +249,6 @@ class CapEnv(gym.Env):
         if self.TEAM_MEMORY == "fog":
             self.blue_memory = np.ones_like(self._static_map, dtype=bool)
             self.red_memory = np.ones_like(self._static_map, dtype=bool)
-
-        if self.INDIV_MEMORY == "fog":
-            for agent in self._team_blue + self._team_red:
-                agent.memory[:] = UNKNOWN
-                agent.memory_mode = "fog"
 
         # INITIALIZE TRAJECTORY (DEBUG)
         self._blue_trajectory = []
@@ -499,9 +494,19 @@ class CapEnv(gym.Env):
         self._create_observation_mask()
         
         # Update individual's memory
-        for agent in self._agents:
-            if agent.memory_mode == "fog":
-                agent.update_memory(env=self)
+        if self.INDIV_MEMORY == "fog":
+            if self.run_step % self.COM_FREQUENCY == 1:
+                update = np.logical_or.reduce([agent.memory for agent in self._team_blue])
+                for agent in self._team_blue:
+                    agent.update_memory()
+                    agent.share_memory(update)
+                update = np.logical_or.reduce([agent.memory for agent in self._team_red])
+                for agent in self._team_red:
+                    agent.update_memory()
+                    agent.share_memory(update)
+            else:
+                for agent in self._agents:
+                    agent.update_memory()
         
         # Run interaction
         target_agents = [agent for agent in self._agents if agent.isAlive and not agent.is_air]
@@ -760,12 +765,12 @@ class CapEnv(gym.Env):
                 if num_blue < 2:
                     blue_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if blue_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
-                        self._env_render(blue_agent.memory,
+                        self._env_render(blue_agent.get_obs(self),
                                          [900+num_blue*SCREEN_H//4, 7], [SCREEN_H//4-10, SCREEN_H//4-10])
                 else:
                     blue_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if blue_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
-                        self._env_render(blue_agent.memory,
+                        self._env_render(blue_agent.get_obs(self),
                                          [900+(num_blue-2)*SCREEN_H//4, 7+SCREEN_H//4], [SCREEN_H//4-10, SCREEN_H//4-10])
 
             # ind red agent memory rendering
@@ -773,13 +778,13 @@ class CapEnv(gym.Env):
                 if num_red < 2:
                     red_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if red_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
-                        self._env_render(red_agent.memory,
+                        self._env_render(red_agent.get_obs(self),
                                          [900+num_red*SCREEN_H//4, 7+1.49*SCREEN_H//2], [SCREEN_H//4-10, SCREEN_H//4-10])
     
                 else:
                     red_agent.INDIV_MEMORY = self.INDIV_MEMORY
                     if red_agent.INDIV_MEMORY == "fog" and self.RENDER_INDIV_MEMORY == True:
-                        self._env_render(red_agent.memory,
+                        self._env_render(red_agent.get_obs(self),
                                          [900+(num_red-2)*SCREEN_H//4, 7+SCREEN_H//2], [SCREEN_H//4-10, SCREEN_H//4-10])
 
             if self.TEAM_MEMORY == "fog" and self.RENDER_TEAM_MEMORY == True:

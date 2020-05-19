@@ -31,8 +31,8 @@ class Agent:
         self.range = UGV_RANGE
         self.a_range = UGV_A_RANGE
         self.level = 'ground'
-        self.memory = np.empty_like(static_map)
-        self.memory_mode = "None"
+        self.memory = np.zeros_like(static_map, dtype=bool)
+        self.update_memory()
         #self.ai = EnemyAI(static_map)
         
         self.marker = None
@@ -137,23 +137,23 @@ class Agent:
         else:
             print("error: wrong action selected")
     
-    def update_memory(self, env):
+    def update_memory(self):
         """
-        saves/updates individual map of an agent
-
+        Update memory mask to current position
         """
-        
-        obs = self.get_obs(env=env)
-        leng, breth = obs.shape
-        leng, breth = leng//2, breth//2
-        l, b = self.memory.shape
-        loc_x, loc_y = self.get_loc()
-        offset_x, offset_y = leng - loc_x, breth - loc_y
-        obs = obs[offset_x: offset_x + l, offset_y: offset_y + b]    
-        coord = obs != UNKNOWN
-        self.memory[coord] = env.team_home[coord]
-
-        return
+        lx, ly = self.get_loc()
+        for x in range(lx - self.range, lx + self.range + 1):
+            for y in range(ly - self.range, ly + self.range + 1):
+                if ((x - lx) ** 2 + (y - ly) ** 2 <= self.range ** 2) and \
+                        0 <= x and x < self.memory.shape[1] and \
+                        0 <= y and y < self.memory.shape[0]:
+                    self.memory[y,x] = True
+         
+    def share_memory(self, update):
+        """
+        Update the memory
+        """
+        self.memory = np.logical_or(self.memory, update)
     
     def individual_reward(self, env):
         """
@@ -192,6 +192,14 @@ class Agent:
         print("report: position x:%d, y:%d" % (self.x, self.y))
 
     def get_obs(self, env):
+        lx, ly = self.get_loc()
+        mx = env.map_size[0]-1
+        my = env.map_size[1]-1
+        obs = env.get_full_state
+        obs[~self.memory] = UNKNOWN
+        padwidth = ((mx-lx, lx),(my-ly, ly))
+        return np.pad(obs, padwidth, mode='constant', constant_values=UNKNOWN)
+        """
         com_air = env.COM_AIR
         com_ground = env.COM_GROUND
         com_distance = env.COM_DISTANCE
@@ -202,16 +210,15 @@ class Agent:
         else:
             myTeam = env.get_team_red
 
-        a = 39              # env.map_size[0]*2-1
-        b = 39              # env.map_size[1]*2-1
+        a = env.map_size[0]*2-1
+        b = env.map_size[1]*2-1
         obs = np.full(shape=(a, b), fill_value=UNKNOWN)
         val = env.get_full_state
 
         if not self.isAlive:        # if target agent is dead, return all -1
             return obs
 
-        loc = self.get_loc()
-        x, y = loc[0], loc[1]
+        x, y = self.get_loc()
         for i in range(-self.range, self.range + 1):
             for j in range(-self.range, self.range + 1):
                 locx, locy = i + loc[0], j + loc[1]
@@ -277,6 +284,7 @@ class Agent:
                                 obs[coordx][coordy] = UNKNOWN
 
         return obs
+        """
 
     @property
     def is_air(self):
