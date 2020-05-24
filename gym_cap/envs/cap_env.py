@@ -120,6 +120,9 @@ class CapEnv(gym.Env):
                     'MAP_MODE',
                     'MAP_POOL_SIZE',
                     ]
+                'experiments': [
+                    'RENDER_ENV_ONLY',
+                    ]
             }
         config_datatype = {
                 'elements': [int, int, int ,int, int,
@@ -130,7 +133,9 @@ class CapEnv(gym.Env):
                 'communication': [bool, bool, int, int],
                 'memory': [str, str, bool, bool],
                 'settings': [bool, bool, float, str,
-                        bool, int, bool, bool, bool, str, int]
+                        bool, int, bool, bool, bool, str, int],
+                'experiments': [
+                    bool],
             }
 
         if config_path is None and self.config_path is not None:
@@ -740,6 +745,25 @@ class CapEnv(gym.Env):
             Defines what will be rendered
         """
 
+        #if mode == "single":
+        if self.RENDER_ENV_ONLY:
+            SCREEN_W = 600
+            SCREEN_H = 600
+                
+            if self.viewer is None:
+                from gym.envs.classic_control import rendering
+                self.viewer = rendering.Viewer(SCREEN_W, SCREEN_H)
+                self.viewer.set_bounds(0, SCREEN_W, 0, SCREEN_H)
+
+            self.viewer.draw_polygon([(0, 0), (SCREEN_W, 0), (SCREEN_W, SCREEN_H), (0, SCREEN_H)], color=np.array([120, 120, 120])/255.0)
+            bezel = 10
+            
+            self._env_render(self.get_full_state,
+                            [bezel, bezel], [SCREEN_W-2*bezel, SCREEN_H-2*bezel])
+            self._agent_render(self.get_full_state,
+                            [bezel, bezel], [SCREEN_W-2*bezel, SCREEN_H-2*bezel])
+            return self.viewer.render(return_rgb_array = mode=='rgb_array')
+
         if (self.RENDER_INDIV_MEMORY == True and self.INDIV_MEMORY == "fog") or (self.RENDER_TEAM_MEMORY == True and self.TEAM_MEMORY == "fog"):
             SCREEN_W = 1200
             SCREEN_H = 600
@@ -853,7 +877,7 @@ class CapEnv(gym.Env):
 
     def _agent_render(self, image, rend_loc, rend_size, agents=None):
         if agents is None:
-            agents = self._team_blue + self._team_red
+            agents = self._agents
         map_h, map_w = image.shape
         tile = min(rend_size[0]/map_w, rend_size[1]/map_h)
 
